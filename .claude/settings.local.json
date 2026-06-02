@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"c:\\\\Users\\\\NorbertoMuñozGómez\\\\Desktop\\\\CV_adapter\"; $env:ANTHROPIC_API_KEY = \"sk-test\"; python -c \"from backend.main import app; print\\('App loaded OK'\\)\")"
+    ]
+  }
+}

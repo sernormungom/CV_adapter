@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CV – {{ cv.header.full_name }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;
+  --grey:#e5e1da;--grey-dark:#ccc8c0;
+  --sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;
+}
+html,body{font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  html,body{background:#fff!important;margin:0;padding:0}
+  .cvs{box-shadow:none!important;max-width:100%!important;width:100%!important}
+  .cvs::before{display:block!important}
+  .cvs-exp-row{break-inside:avoid;page-break-inside:avoid}
+  .cvs-sec-hd-row{break-after:avoid;page-break-after:avoid}
+  @page{margin:0;size:A4 portrait}
+}
+
+body{display:flex;justify-content:center;padding:32px 20px}
+
+.cvs{
+  width:720px;max-width:720px;min-height:1018px;
+  background:#fff;
+  font-family:var(--sans);font-size:11px;color:var(--ink);
+  box-shadow:0 8px 48px rgba(0,0,0,.24);
+  display:grid;
+  grid-template-columns:26.4% minmax(0,1fr);
+  grid-auto-rows:min-content;
+  align-content:start;
+  overflow:hidden;position:relative;
+}
+.cvs::before{
+  content:'';position:absolute;top:0;left:0;bottom:0;
+  width:26.4%;background:var(--grey);z-index:0;pointer-events:none;
+}
+.cvs>*{position:relative;z-index:1}
+
+/* ── HEADER ── */
+.cvs-hd{
+  grid-column:1/-1;background:var(--acc);
+  padding:20px 22px 17px;
+  display:flex;align-items:flex-start;justify-content:space-between;
+}
+.cvs-role-lbl{font-size:11.5px;font-weight:300;color:rgba(255,255,255,.82);letter-spacing:.04em;margin-bottom:3px}
+.cvs-name-lbl{font-size:31px;font-weight:600;color:#fff;line-height:1.1;font-family:var(--serif)}
+.cvs-hd-contact{text-align:right;color:rgba(255,255,255,.82);font-size:9.5px;line-height:1.7;padding-top:4px}
+.cvs-hd-contact a{color:rgba(255,255,255,.82);text-decoration:none}
+
+/* ── BODY COLUMNS ── */
+.cvs-body-l{background:transparent;padding:16px 12px 16px 18px}
+.cvs-body-r{background:#fff;padding:16px 18px 16px 14px}
+
+/* ── SECTION HEADING ROW ── */
+.cvs-sec-hd-row{grid-column:1/-1;display:grid;grid-template-columns:26.4% minmax(0,1fr)}
+.cvs-sec-hd-l{background:transparent;padding:14px 12px 6px 18px}
+.cvs-sec-hd-r{background:#fff;padding:14px 18px 6px 14px}
+.cvs-divider{grid-column:1/-1;height:1px;background:var(--acc)}
+
+/* Section heading style */
+.cvs-sec{
+  font-size:13px;font-weight:400;font-family:var(--serif);
+  color:var(--acc);padding-bottom:4px;margin-bottom:6px;
+  border-bottom:1px solid var(--grey-dark);line-height:1.2;
+}
+
+/* ── SIDEBAR items ── */
+.cvs-lco{font-size:10.5px;font-weight:600;color:var(--ink);margin-bottom:1px;line-height:1.3}
+.cvs-lci{font-size:9.5px;color:var(--ink-mid)}
+.cvs-lcd{font-size:9.5px;color:var(--ink-soft);margin-bottom:8px}
+.cvs-lang{font-size:10.5px;color:var(--ink-mid);margin-bottom:4px;display:flex;gap:5px;line-height:1.4}
+.cvs-lang::before{content:'•';color:var(--acc);flex-shrink:0}
+.cvs-ski{display:flex;align-items:flex-start;gap:5px;margin-bottom:3px;line-height:1.4}
+.cvs-ski-dot{width:4px;height:4px;background:var(--acc);border-radius:50%;flex-shrink:0;margin-top:3.5px}
+
+/* ── EXPERIENCE ROW ── */
+.cvs-exp-row{grid-column:1/-1;display:grid;grid-template-columns:26.4% minmax(0,1fr)}
+.cvs-exp-row-l{background:transparent;padding:10px 12px 10px 18px}
+.cvs-exp-row-r{background:#fff;padding:10px 18px 10px 14px;box-shadow:inset 0 1px 0 #edeae4}
+.cvs-exp-role{font-weight:600;color:var(--ink);margin-bottom:1px;line-height:1.3}
+.cvs-exp-period{font-size:9.5px;color:var(--ink-soft);margin-bottom:5px}
+.cvs-exp-bullets{list-style:none;padding:0;margin:0}
+.cvs-exp-bullets li{color:var(--ink-mid);line-height:1.55;margin-bottom:2px;padding-left:12px;position:relative}
+.cvs-exp-bullets li::before{content:'•';position:absolute;left:0;color:var(--acc)}
+.cvs-personal-tag{font-size:8.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);margin-bottom:3px}
+
+/* ── EDUCATION ── */
+.cvs-edu-deg{font-size:11px;font-weight:600;color:var(--ink);margin-bottom:1px}
+.cvs-edu-sch{font-size:10.5px;color:var(--ink-mid)}
+.cvs-edu-dates{font-size:9.5px;color:var(--ink-soft);margin-bottom:8px}
+
+/* ── COURSES ── */
+.cvs-course{padding-left:10px;position:relative;margin-bottom:3px;line-height:1.5;color:var(--ink-mid)}
+.cvs-course::before{content:'•';position:absolute;left:0;color:var(--acc)}
+
+/* ── FOOTER ── */
+.cvs-ft{grid-column:1/-1;display:grid;grid-template-columns:26.4% 1fr;min-height:16mm}
+.cvs-ft-grey{background:var(--grey)}
+.cvs-ft-inner{background:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 5.8mm;font-size:9px;color:var(--ink-soft);border-top:1px solid #dedad3}
+</style>
+</head>
+<body>
+<div class="cvs">
+
+  {# ── HEADER ── #}
+  <div class="cvs-hd">
+    <div>
+      <div class="cvs-role-lbl">{{ cv.header.job_title }}</div>
+      <div class="cvs-name-lbl">{{ cv.header.full_name }}</div>
+    </div>
+    <div class="cvs-hd-contact">
+      {% if cv.header.contact.email %}<div>{{ cv.header.contact.email }}</div>{% endif %}
+      {% if cv.header.contact.phone %}<div>{{ cv.header.contact.phone }}</div>{% endif %}
+      {% if cv.header.contact.location %}<div>{{ cv.header.contact.location }}</div>{% endif %}
+      {% if cv.header.contact.linkedin %}<div><a href="{{ cv.header.contact.linkedin }}">LinkedIn</a></div>{% endif %}
+    </div>
+  </div>
+
+  {# ── SIDEBAR (left) + SUMMARY (right) ── #}
+  <div class="cvs-body-l">
+    {# COMPETENCIES in sidebar #}
+    {% if cv.competencies %}
+    <div class="cvs-sec">Skills</div>
+    {% for skill in cv.competencies %}
+    <div class="cvs-ski">
+      <span class="cvs-ski-dot"></span>
+      <span>{{ skill }}</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# LANGUAGES in sidebar #}
+    {% if cv.languages %}
+    <div class="cvs-sec" style="margin-top:16px">Languages</div>
+    {% for lang in cv.languages %}
+    <div class="cvs-lang">{{ lang.language }} <span style="color:#888;font-size:9px">{{ lang.proficiency }}</span></div>
+    {% endfor %}
+    {% endif %}
+
+    {# COURSES in sidebar if present #}
+    {% if cv.courses %}
+    <div class="cvs-sec" style="margin-top:16px">Certifications</div>
+    {% for c in cv.courses %}
+    <div class="cvs-course">
+      {{ c.name }}{% if c.issuer %} · {{ c.issuer }}{% endif %}{% if c.year %} ({{ c.year }}){% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# INTERESTS in sidebar if present #}
+    {% if cv.interests %}
+    <div class="cvs-sec" style="margin-top:16px">Interests</div>
+    {% for interest in cv.interests %}
+    <div class="cvs-lang">{{ interest }}</div>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+  {# RIGHT BODY: summary + experience + education #}
+  <div class="cvs-body-r">
+    {% if cv.summary %}
+    <div class="cvs-sec">Profile</div>
+    <p style="color:var(--ink-mid);line-height:1.6;margin-bottom:10px">{{ cv.summary }}</p>
+    {% endif %}
+  </div>
+
+  {# ── EXPERIENCE section heading ── #}
+  {% if cv.experience %}
+  <div class="cvs-sec-hd-row">
+    <div class="cvs-sec-hd-l"></div>
+    <div class="cvs-sec-hd-r">
+      <div class="cvs-sec">Experience</div>
+    </div>
+  </div>
+  <div class="cvs-divider"></div>
+
+  {# One row per experience entry #}
+  {% for exp in cv.experience %}
+  <div class="cvs-exp-row">
+    <div class="cvs-exp-row-l">
+      <div class="cvs-lco">{{ exp.organization }}</div>
+      <div class="cvs-lcd">{{ exp.date_range }}</div>
+    </div>
+    <div class="cvs-exp-row-r">
+      {% if exp.is_personal_project %}<div class="cvs-personal-tag">Personal Project</div>{% endif %}
+      <div class="cvs-exp-role">{{ exp.role_title }}</div>
+      <ul class="cvs-exp-bullets">
+        {% for bullet in exp.bullets %}
+        <li>{{ bullet }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {# ── EDUCATION section heading ── #}
+  {% if cv.education %}
+  <div class="cvs-sec-hd-row">
+    <div class="cvs-sec-hd-l"></div>
+    <div class="cvs-sec-hd-r">
+      <div class="cvs-sec">Education</div>
+    </div>
+  </div>
+  <div class="cvs-divider"></div>
+
+  <div class="cvs-exp-row">
+    <div class="cvs-exp-row-l"></div>
+    <div class="cvs-exp-row-r">
+      {% for edu in cv.education %}
+      <div class="cvs-edu-deg">{{ edu.qualification }}</div>
+      <div class="cvs-edu-sch">{{ edu.institution }}</div>
+      <div class="cvs-edu-dates">{{ edu.years }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── FOOTER ── #}
+  <div class="cvs-ft">
+    <div class="cvs-ft-grey"></div>
+    <div class="cvs-ft-inner">
+      <span>Generated {{ generated_date }} · {{ cv.meta.target_position }}</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
