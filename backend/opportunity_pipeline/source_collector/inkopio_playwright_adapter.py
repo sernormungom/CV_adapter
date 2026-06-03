@@ -160,6 +160,44 @@ def _collect_requisition_links(page: Any, base_url: str, max_jobs: int) -> List[
 
 
 # ---------------------------------------------------------------------------
+# Expand collapsed content ("...More" / "Läs mer" buttons)
+# ---------------------------------------------------------------------------
+
+def _expand_content(page: Any) -> None:
+    """Click any 'More' / 'Läs mer' / 'Read more' buttons to reveal full text."""
+    patterns = [
+        re.compile(r"^\s*\.{0,3}\s*more\s*$", re.I),
+        re.compile(r"^\s*l[aä]s\s*mer\s*$", re.I),
+        re.compile(r"^\s*read\s*more\s*$", re.I),
+        re.compile(r"^\s*visa\s*mer\s*$", re.I),
+        re.compile(r"^\s*show\s*more\s*$", re.I),
+        re.compile(r"^\s*se\s*mer\s*$", re.I),
+    ]
+    for pattern in patterns:
+        try:
+            buttons = page.get_by_text(pattern).all()
+            for btn in buttons:
+                try:
+                    if btn.is_visible(timeout=500):
+                        btn.click(timeout=1500)
+                        page.wait_for_timeout(500)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    # Also try role=button with matching text
+    for label in ("More", "...More", "Läs mer", "Read more", "Visa mer", "Show more"):
+        try:
+            btn = page.get_by_role("button", name=re.compile(re.escape(label), re.I))
+            if btn.count() and btn.first.is_visible(timeout=300):
+                btn.first.click(timeout=1500)
+                page.wait_for_timeout(500)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Detail page extraction
 # ---------------------------------------------------------------------------
 
@@ -383,6 +421,7 @@ def collect_inkopio_jobs(source: Dict[str, Any], project_root: Path) -> List[Dic
                     detail.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
                     _wait_ready(detail, timeout_ms)
                     _dismiss_cookies(detail)
+                    _expand_content(detail)
                     title = _extract_title(detail)
                     text  = _extract_overview(detail)
                     if len(text) < 100:
