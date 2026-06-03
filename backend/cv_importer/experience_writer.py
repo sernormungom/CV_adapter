@@ -233,6 +233,7 @@ def write_profile(
     data: dict,
     source_tmp_path: Path | None = None,
     source_filename: str | None = None,
+    username: str | None = None,
 ) -> dict:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     as_of = datetime.now(timezone.utc).strftime("%Y-%m")
@@ -245,7 +246,7 @@ def write_profile(
         return {"success": False, "consultant_id": None, "validation_errors": issues}
 
     full_name: str = data["identity"]["full_name"]
-    consultant_id = _derive_consultant_id(full_name)
+    consultant_id = username if username else _derive_consultant_id(full_name)
 
     data = _assign_ids(data)
 

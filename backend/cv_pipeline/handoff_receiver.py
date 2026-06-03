@@ -1,13 +1,12 @@
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.config import DATA_DIR
 from backend.cv_pipeline.context_assembler import assemble_context
 from backend.cv_pipeline.cv_content_generator import generate_cv_content
-from backend.cv_pipeline.cv_renderer import render_cv
 
 router = APIRouter()
 
@@ -17,8 +16,8 @@ class GenerateCVRequest(BaseModel):
     job_description: str
 
 
-@router.post("/generate-cv", response_class=HTMLResponse)
-async def generate_cv(req: GenerateCVRequest) -> HTMLResponse:
+@router.post("/generate-cv")
+async def generate_cv(req: GenerateCVRequest) -> JSONResponse:
     profile_path: Path = DATA_DIR / req.consultant_id / "profile.md"
     if not profile_path.exists():
         raise HTTPException(
@@ -38,5 +37,97 @@ async def generate_cv(req: GenerateCVRequest) -> HTMLResponse:
             detail={"message": "CV generation failed.", "errors": errors},
         )
 
-    html = render_cv(cv_content, req.consultant_id)
-    return HTMLResponse(content=html)
+    return JSONResponse(content={
+        "success": True,
+        "form_data": _cv_content_to_form_data(cv_content),
+    })
+
+
+def _cv_content_to_form_data(cv: dict) -> dict:
+    """Convert cv-content YAML structure to the populateFromImport() JSON format."""
+    header = cv.get("header", {})
+    contact = header.get("contact", {})
+
+    # Experience: each cv-content entry → one company entry with one assignment
+    experience = []
+    for exp in cv.get("experience", []):
+        date_range = exp.get("date_range", "")
+        # Split "Oct 2024 – Present" into from/to
+        if " – " in date_range:
+            from_date, to_date = date_range.split(" – ", 1)
+        elif " - " in date_range:
+            from_date, to_date = date_range.split(" - ", 1)
+        else:
+            from_date, to_date = date_range, ""
+
+        experience.append({
+            "company": exp.get("organization", ""),
+            "location": "",
+            "from": from_date.strip(),
+            "to": to_date.strip(),
+            "assignments": [{
+                "role": exp.get("role_title", ""),
+                "period": date_range,
+                "bullets": exp.get("bullets", []),
+                "tools": "",
+            }],
+        })
+
+    # Education: first entry → main education block; extras → courses
+    education_list = cv.get("education", [])
+    main_edu: dict = {}
+    extra_courses: list[str] = []
+    if education_list:
+        edu = education_list[0]
+        years = edu.get("years", "")
+        if "–" in years:
+            y_from, y_to = years.split("–", 1)
+        elif "-" in years:
+            y_from, y_to = years.split("-", 1)
+        else:
+            y_from, y_to = years, ""
+        main_edu = {
+            "degree": edu.get("qualification", ""),
+            "institution": edu.get("institution", ""),
+            "from": y_from.strip(),
+            "to": y_to.strip(),
+            "description": "",
+        }
+        for edu in education_list[1:]:
+            name = edu.get("qualification", "")
+            if name:
+                extra_courses.append(name)
+
+    # Courses from cv-content + any extra education entries
+    cv_courses = [
+        c.get("name", "") if isinstance(c, dict) else str(c)
+        for c in cv.get("courses", [])
+    ]
+    courses = [c for c in cv_courses + extra_courses if c]
+
+    # Languages
+    languages = [
+        {"name": lang.get("language", ""), "level": lang.get("proficiency", "")}
+        for lang in cv.get("languages", [])
+    ]
+
+    # Competencies → skills.main (the tailored skill list for this position)
+    competencies = cv.get("competencies", [])
+
+    return {
+        "iName": header.get("full_name", ""),
+        "iRole": header.get("job_title", ""),
+        "iEmail": contact.get("email", ""),
+        "iPhone": contact.get("phone", ""),
+        "iAvail": "",
+        "iSummary": cv.get("summary", ""),
+        "skills": {
+            "main": competencies,
+            "other": [],
+            "tool": [],
+        },
+        "experience": experience,
+        "education": main_edu,
+        "languages": languages,
+        "courses": courses,
+    }

@@ -1,6 +1,9 @@
+import logging
 from pathlib import Path
 import anthropic
 import yaml
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA_PATH = Path(__file__).parent.parent.parent / "project_context" / "consultant-profile.schema.md"
 
@@ -64,6 +67,7 @@ async def extract_experience(raw_text: str) -> tuple[dict | None, list[dict]]:
     )
 
     raw = message.content[0].text.strip()
+    logger.info("LLM raw response (first 400 chars): %s", raw[:400])
 
     # Strip markdown fences if model wrapped the output anyway
     if raw.startswith("```"):
@@ -76,17 +80,25 @@ async def extract_experience(raw_text: str) -> tuple[dict | None, list[dict]]:
     try:
         data = yaml.safe_load(raw)
     except yaml.YAMLError as exc:
+        logger.error("YAML parse failed: %s\nRaw output was:\n%s", exc, raw[:800])
         return None, [{"kind": "parse_error", "context": str(exc)}]
 
     if not isinstance(data, dict):
-        return None, [{"kind": "parse_error", "context": "LLM response is not a YAML mapping"}]
+        logger.error("LLM returned non-dict (%s). Raw: %s", type(data).__name__, raw[:400])
+        return None, [{"kind": "parse_error", "context": f"Expected YAML mapping, got {type(data).__name__}"}]
 
     # Genuine hard errors (contradictory/unparseable input) still block persisting
     if "error" in data:
         err = data["error"]
+        logger.error("LLM reported a hard error: %s", err)
         errors = [err] if isinstance(err, dict) else [{"kind": "other", "context": str(err)}]
         return None, errors
 
+    logger.info(
+        "Extraction OK — top-level keys: %s, gaps: %d",
+        list(data.keys()),
+        len(data.get("gaps", [])),
+    )
     # Gaps and needs_review flags are normal v1.1 output — they are NOT errors.
     # Return the data as-is; the Writer will handle gaps and assign IDs.
     return data, []

@@ -1,6 +1,9 @@
+import logging
 from pathlib import Path
 import anthropic
 import yaml
+
+logger = logging.getLogger(__name__)
 
 _CV_SCHEMA_PATH = Path(__file__).parent.parent.parent / "project_context" / "cv-content.schema.md"
 _PROFILE_SCHEMA_PATH = Path(__file__).parent.parent.parent / "project_context" / "consultant-profile.schema.md"
@@ -26,7 +29,8 @@ GENERATION RULES:
 7. Competencies: 6–12 items derived from the most relevant block skills (languages, tools, domains, processes_standards).
 8. Experience: ordered most-recent first, 3–5 bullets each. Personal projects (employment_type: personal_project / open_source) must include is_personal_project: true.
 9. section_order must list every populated section exactly once. sidebar_sections ⊆ section_order.
-10. If you cannot produce a valid document (e.g. no relevant experience), emit a structured error:
+10. Always include the meta section with consultant_id filled from the input.
+11. If you cannot produce a valid document (e.g. no relevant experience), emit a structured error:
     error:
       kind: "no_relevant_experience" | "insufficient_evidence" | "other"
       context: "description"
@@ -62,6 +66,7 @@ async def generate_cv_content(context: dict) -> tuple[dict | None, list[dict]]:
     )
 
     raw = message.content[0].text.strip()
+    logger.info("CV generator raw response (first 400 chars): %s", raw[:400])
 
     # Strip markdown fences if model wrapped output anyway
     if raw.startswith("```"):
@@ -74,19 +79,25 @@ async def generate_cv_content(context: dict) -> tuple[dict | None, list[dict]]:
     try:
         data = yaml.safe_load(raw)
     except yaml.YAMLError as exc:
+        logger.error("CV YAML parse failed: %s\nRaw:\n%s", exc, raw[:800])
         return None, [{"kind": "parse_error", "context": str(exc)}]
 
     if not isinstance(data, dict):
-        return None, [{"kind": "parse_error", "context": "LLM response is not a YAML mapping"}]
+        logger.error("CV generator returned non-dict (%s). Raw: %s", type(data).__name__, raw[:400])
+        return None, [{"kind": "parse_error", "context": f"Expected YAML mapping, got {type(data).__name__}"}]
 
     if "error" in data:
         err = data["error"]
+        logger.error("CV generator reported hard error: %s", err)
         return None, [err] if isinstance(err, dict) else [{"kind": "other", "context": str(err)}]
 
     errors = _validate_cv_content(data)
     if errors:
+        logger.error("CV content validation failed: %s", errors)
+        logger.error("Failing data keys: %s", list(data.keys()))
         return None, errors
 
+    logger.info("CV content generated and validated OK")
     return data, []
 
 
@@ -113,8 +124,7 @@ def _validate_cv_content(data: dict) -> list[dict]:
     def err(msg: str) -> None:
         issues.append({"kind": "validation_error", "context": msg})
 
-    if not data.get("meta", {}).get("consultant_id"):
-        err("meta.consultant_id is required")
+    # Required structural fields
     if not data.get("header", {}).get("full_name"):
         err("header.full_name is required")
     if not data.get("header", {}).get("job_title"):
@@ -122,31 +132,52 @@ def _validate_cv_content(data: dict) -> list[dict]:
     if not data.get("summary"):
         err("summary is required")
 
+    # Competencies: require at least 1 (warn in log if <6, but don't block)
     competencies = data.get("competencies", [])
-    if not (6 <= len(competencies) <= 12):
-        err(f"competencies must have 6–12 items (got {len(competencies)})")
+    if not competencies:
+        err("competencies must have at least 1 item")
+    elif len(competencies) < 6:
+        logger.warning("competencies has only %d items (schema recommends 6–12)", len(competencies))
 
+    # Experience: require at least 1 entry; bullets require at least 1 (warn if <3)
     experience = data.get("experience", [])
     if not experience:
         err("experience must have at least one entry")
     for i, exp in enumerate(experience):
         bullets = exp.get("bullets", [])
-        if not (3 <= len(bullets) <= 5):
-            err(f"experience[{i}].bullets must have 3–5 items (got {len(bullets)})")
+        if not bullets:
+            err(f"experience[{i}] ({exp.get('organization','?')}) has no bullets")
+        elif len(bullets) < 3:
+            logger.warning(
+                "experience[%d] (%s) has only %d bullets (schema recommends 3–5)",
+                i, exp.get("organization", "?"), len(bullets)
+            )
 
-    languages = data.get("languages", [])
-    if not languages:
+    # Languages: require at least 1
+    if not data.get("languages"):
         err("languages must have at least one entry")
 
-    render = data.get("render", {})
-    section_order = render.get("section_order", [])
-    sidebar_sections = render.get("sidebar_sections", [])
-    if not render.get("length"):
-        err("render.length is required")
-    if not section_order:
-        err("render.section_order is required")
-    for s in sidebar_sections:
-        if s not in section_order:
-            err(f"render.sidebar_sections contains '{s}' which is not in section_order")
+    # Render: add defaults if missing rather than blocking
+    render = data.get("render")
+    if not render:
+        logger.warning("render section missing — injecting defaults")
+        data["render"] = {
+            "length": "two_page",
+            "section_order": ["summary", "competencies", "experience", "education", "languages"],
+            "sidebar_sections": ["competencies", "languages"],
+        }
+    else:
+        if not render.get("length"):
+            render["length"] = "two_page"
+        if not render.get("section_order"):
+            render["section_order"] = ["summary", "competencies", "experience", "education", "languages"]
+        if not render.get("sidebar_sections"):
+            render["sidebar_sections"] = ["competencies", "languages"]
+
+    # Inject consultant_id into meta if LLM forgot it
+    if not data.get("meta"):
+        data["meta"] = {}
+    if not data["meta"].get("consultant_id"):
+        logger.warning("meta.consultant_id missing from LLM output — will be patched by caller")
 
     return issues

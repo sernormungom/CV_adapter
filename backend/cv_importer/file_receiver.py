@@ -3,7 +3,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, Form, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 
 from backend.cv_importer.cv_parser import extract_text
@@ -20,7 +20,10 @@ ALLOWED_TYPES = {
 
 
 @router.post("/import-cv")
-async def import_cv(file: UploadFile = File(...)) -> JSONResponse:
+async def import_cv(
+    file: UploadFile = File(...),
+    username: str = Form(default=""),
+) -> JSONResponse:
     mime = file.content_type or ""
     # Some browsers send generic type for .docx; sniff by extension
     if mime not in ALLOWED_TYPES:
@@ -67,6 +70,11 @@ async def import_cv(file: UploadFile = File(...)) -> JSONResponse:
     datestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     original_name = f"{datestamp}_{Path(file.filename or 'cv').name}"
 
-    result = write_profile(profile_data, source_tmp_path=tmp_path, source_filename=original_name)
+    result = write_profile(
+        profile_data,
+        source_tmp_path=tmp_path,
+        source_filename=original_name,
+        username=username.strip() or None,
+    )
     result["extraction_errors"] = errors
     return JSONResponse(content=result)
