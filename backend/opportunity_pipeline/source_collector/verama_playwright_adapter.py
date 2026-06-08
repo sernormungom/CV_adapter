@@ -342,6 +342,7 @@ def _collect_detail(context: Any, url: str, source: Dict[str, Any], timeout_ms: 
             "source_url": page.url,
             "title_hint": title,
             "company_hint": fields.get("company") or source.get("company_hint"),
+            "close_date": fields.get("deadline") or "",
             "text": text,
         }
     finally:

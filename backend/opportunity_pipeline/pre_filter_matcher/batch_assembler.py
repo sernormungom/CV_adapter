@@ -14,13 +14,14 @@ Steps:
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
-from backend.config import DATA_DIR, JOB_STORE_DIR
+from backend.config import APPLICATION_TRACKER_DIR, DATA_DIR, JOB_STORE_DIR
 from ..source_collector.position_writer import list_active_positions, save_position
 from .config_reader import load_config
 from .scoring_engine import score_job
@@ -63,9 +64,28 @@ def run_matching(consultant_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, An
         config = bootstrap_config(consultant_id)
         config_source = "bootstrapped"
 
-    active_jobs = list_active_positions(JOB_STORE_DIR)
+    all_active_jobs = list_active_positions(JOB_STORE_DIR)
+    total_active = len(all_active_jobs)
+
+    # Exclude jobs already reviewed by this consultant
+    verdicts_path = APPLICATION_TRACKER_DIR / f"{consultant_id}_verdicts.json"
+    reviewed_ids: set = set()
+    if verdicts_path.exists():
+        try:
+            reviewed_ids = set(json.loads(verdicts_path.read_text(encoding="utf-8")).keys())
+        except Exception:
+            pass
+    active_jobs = [j for j in all_active_jobs if j["job_id"] not in reviewed_ids]
+
     if not active_jobs:
-        return [], {"total_active": 0, "scored": 0, "selected": 0, "config_source": config_source}
+        return [], {
+            "total_active": total_active,
+            "reviewed_excluded": len(reviewed_ids),
+            "scored": 0,
+            "selected": 0,
+            "config_source": config_source,
+            "all_reviewed": True,
+        }
 
     # Score all jobs
     scored = []
@@ -88,23 +108,28 @@ def run_matching(consultant_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, An
     core_count = max(1, BATCH_SIZE - exploration_slots)
     top_core = scored[:core_count]
 
-    # Fill exploration slots
-    exploration = select_exploration_slots(scored, top_core, exploration_slots, config)
+    # Fill exploration slots (also excludes reviewed jobs from diversity pool)
+    exploration = select_exploration_slots(scored, top_core, exploration_slots, config, reviewed_ids)
 
     # Combine and mark as selected
     batch = top_core + exploration
     selected_ids = {j["job_id"] for j in batch}
 
-    # Clear previous batch selection flags
-    for job in scored:
+    # Clear previous batch selection flags across ALL active jobs (including reviewed ones
+    # that may still have batch_selected=true from a previous cycle).
+    scored_map = {j["job_id"]: j for j in scored}
+    for job in all_active_jobs:
         was_selected = job["job_id"] in selected_ids
+        # Use the in-memory scored copy if available (it has updated scores)
+        job = scored_map.get(job["job_id"], job)
         if job.get("batch_selected") != was_selected:
             job["batch_selected"] = was_selected
             job["batch_selected_at"] = None if not was_selected else job.get("batch_selected_at")
             save_position(job, JOB_STORE_DIR)
 
     return batch, {
-        "total_active": len(active_jobs),
+        "total_active": total_active,
+        "reviewed_excluded": len(reviewed_ids),
         "scored": len(scored),
         "selected": len(batch),
         "config_source": config_source,

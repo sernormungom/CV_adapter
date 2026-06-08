@@ -1,9 +1,11 @@
 import json
 import os
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from backend.config import APPLICATION_TRACKER_DIR, JOB_STORE_DIR
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -105,6 +107,72 @@ def get_photo(username: str) -> FileResponse:
         if p.exists():
             return FileResponse(p)
     raise HTTPException(status_code=404, detail="No photo")
+
+
+_STATUS_VALUES = {"to_apply", "cv_ready", "applied"}
+_STATUS_ORDER  = {"to_apply": 0, "cv_ready": 1, "applied": 2}
+_APPLIED_RETENTION_DAYS = 7
+
+
+@app.get("/api/profiles/{username}/accepted-positions")
+def get_accepted_positions(username: str) -> list:
+    uname = _normalize_username(username)
+    verdicts_path = APPLICATION_TRACKER_DIR / f"{uname}_verdicts.json"
+    if not verdicts_path.exists():
+        return []
+    verdicts = json.loads(verdicts_path.read_text(encoding="utf-8"))
+    cutoff = datetime.now(timezone.utc) - timedelta(days=_APPLIED_RETENTION_DAYS)
+    result = []
+    for job_id, v in verdicts.items():
+        if v.get("verdict") != "yes":
+            continue
+        app_status = v.get("application_status", "to_apply")
+        # Drop applied positions that have been on the board for more than retention days
+        if app_status == "applied":
+            applied_at_str = v.get("applied_at", "")
+            if applied_at_str:
+                try:
+                    if datetime.fromisoformat(applied_at_str) < cutoff:
+                        continue
+                except ValueError:
+                    pass
+        raw_text = ""
+        job_path = JOB_STORE_DIR / f"{job_id}.json"
+        if job_path.exists():
+            raw_text = json.loads(job_path.read_text(encoding="utf-8")).get("raw_text", "")
+        result.append({
+            "job_id": job_id,
+            "title": v.get("title_guess", ""),
+            "source_id": v.get("source_id", ""),
+            "source_url": v.get("source_url", ""),
+            "match_score": v.get("match_score"),
+            "application_status": app_status,
+            "raw_text": raw_text,
+        })
+    return sorted(result, key=lambda x: (
+        _STATUS_ORDER.get(x["application_status"], 0),
+        -(x["match_score"] or 0),
+    ))
+
+
+@app.post("/api/profiles/{username}/accepted-positions/{job_id}/status")
+async def update_position_status(username: str, job_id: str, request: Request) -> Dict[str, Any]:
+    uname = _normalize_username(username)
+    verdicts_path = APPLICATION_TRACKER_DIR / f"{uname}_verdicts.json"
+    if not verdicts_path.exists():
+        raise HTTPException(status_code=404, detail="No verdicts file found")
+    body = await request.json()
+    new_status = body.get("status", "")
+    if new_status not in _STATUS_VALUES:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {new_status}")
+    verdicts = json.loads(verdicts_path.read_text(encoding="utf-8"))
+    if job_id not in verdicts:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not in verdicts")
+    verdicts[job_id]["application_status"] = new_status
+    if new_status == "applied":
+        verdicts[job_id]["applied_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    verdicts_path.write_text(json.dumps(verdicts, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"ok": True, "job_id": job_id, "status": new_status}
 
 
 @app.post("/api/opportunities/verama-continue")

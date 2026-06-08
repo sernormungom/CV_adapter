@@ -201,6 +201,43 @@ def _expand_content(page: Any) -> None:
 # Detail page extraction
 # ---------------------------------------------------------------------------
 
+_CLOSE_DATE_LABELS = (
+    "deadline", "last date to apply", "closing date", "close date",
+    "sista dag", "sista ansökningsdag", "ansökan senast", "sista dag att ansöka",
+)
+
+
+def _extract_close_date_inkopio(page: Any, timeout_ms: int = 5000) -> str:
+    """Return the close date string from the detail page, or empty string."""
+    for label in _CLOSE_DATE_LABELS:
+        try:
+            loc = page.get_by_text(
+                re.compile(rf"^\s*{re.escape(label)}\s*[:\-]?\s*$", re.I)
+            )
+            if not loc.count():
+                continue
+            value: Optional[str] = loc.first.evaluate(
+                """el => {
+                    const td = el.closest('td') || el.closest('th');
+                    if (td) {
+                        const nx = td.nextElementSibling;
+                        return nx ? nx.innerText.trim() : null;
+                    }
+                    const row = el.closest('tr') || el.closest('div');
+                    if (row) {
+                        const nx = row.nextElementSibling;
+                        return nx ? nx.innerText.trim() : null;
+                    }
+                    return null;
+                }"""
+            )
+            if value and len(value.strip()) < 50:
+                return clean_text(value)
+        except Exception:
+            pass
+    return ""
+
+
 def _extract_overview(page: Any) -> str:
     """
     Try labelled-cell extraction first, then textarea/div, then full text.
@@ -435,6 +472,7 @@ def collect_inkopio_jobs(source: Dict[str, Any], project_root: Path) -> List[Dic
                         "source_url":  detail.url,
                         "title_hint":  title,
                         "company_hint": company_hint,
+                        "close_date":  _extract_close_date_inkopio(detail, timeout_ms),
                         "text": text,
                     })
                 except Exception as exc:

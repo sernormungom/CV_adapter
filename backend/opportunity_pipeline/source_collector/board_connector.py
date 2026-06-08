@@ -418,6 +418,7 @@ def collect_from_sources(
                 "company_hint": raw.get("company_hint") or "",
                 "raw_text": text,
                 "collected_at": collected_at,
+                "close_date": raw.get("close_date") or "",
                 "error": error,
             })
 

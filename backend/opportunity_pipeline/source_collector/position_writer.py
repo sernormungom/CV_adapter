@@ -12,6 +12,7 @@ Job Store schema (one file per job at JOB_STORE_DIR/{job_id}.json):
   company_hint    str
   raw_text        str
   collected_at    ISO-8601 str
+  close_date      YYYY-MM-DD str | null  — application deadline; null if unknown
   match_score     float | null     — set by Pre-Filter & Matcher
   score_breakdown dict | null      — set by Pre-Filter & Matcher
   batch_selected  bool             — true if in current top-10 batch
@@ -21,9 +22,128 @@ Job Store schema (one file per job at JOB_STORE_DIR/{job_id}.json):
 from __future__ import annotations
 
 import json
+import re
+from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+
+# ---------------------------------------------------------------------------
+# Close-date extraction
+# ---------------------------------------------------------------------------
+
+_SWEDISH_MONTHS = {
+    "januari": 1, "februari": 2, "mars": 3, "april": 4, "maj": 5, "juni": 6,
+    "juli": 7, "augusti": 8, "september": 9, "oktober": 10, "november": 11, "december": 12,
+}
+
+_DATE_LABEL_RE = re.compile(
+    r"(?:ansökningstiden\s+löper\s+ut|sista\s+ansökningsdag|ansökan\s+senast"
+    r"|sista\s+dag\s+att\s+ansöka|deadline|close\s+date|closing\s+date"
+    r"|application\s+deadline|last\s+day\s+to\s+apply|apply\s+by)"
+    r"\s*[:\-–]?\s*"
+    r"(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{1,2}\s+\w+\s+\d{4})",
+    re.IGNORECASE,
+)
+
+
+def _parse_date_str(raw: str) -> Optional[str]:
+    raw = raw.strip()
+    # YYYY-MM-DD
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", raw)
+    if m:
+        return raw
+    # DD/MM/YYYY or DD.MM.YYYY
+    m = re.fullmatch(r"(\d{1,2})[./](\d{1,2})[./](\d{2,4})", raw)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        y = y + 2000 if y < 100 else y
+        try:
+            return date(y, mo, d).isoformat()
+        except ValueError:
+            return None
+    # DD Month YYYY (Swedish or English)
+    m = re.fullmatch(r"(\d{1,2})\s+(\w+)\s+(\d{4})", raw)
+    if m:
+        d, month_name, y = int(m.group(1)), m.group(2).lower(), int(m.group(3))
+        mo = _SWEDISH_MONTHS.get(month_name)
+        if mo is None:
+            try:
+                mo = datetime.strptime(month_name, "%B").month
+            except ValueError:
+                return None
+        try:
+            return date(int(y), mo, d).isoformat()
+        except ValueError:
+            return None
+    return None
+
+
+def _extract_close_date(raw_text: str) -> Optional[str]:
+    """Return first parseable deadline date found in raw_text, or None."""
+    for m in _DATE_LABEL_RE.finditer(raw_text):
+        parsed = _parse_date_str(m.group(1))
+        if parsed:
+            return parsed
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Expiry / cleanup
+# ---------------------------------------------------------------------------
+
+def mark_expired_positions(
+    job_store_dir: Path,
+    days_before_close: int = 7,
+    max_age_days: int = 30,
+) -> Dict[str, int]:
+    """
+    Mark active jobs as expired when:
+    - close_date is set and is within days_before_close days (or already past)
+    - close_date is null and collected_at is older than max_age_days days
+    Returns {"marked_expired": N}. Never deletes records.
+    """
+    today = datetime.now(timezone.utc).date()
+    cutoff_close = today + timedelta(days=days_before_close)
+    cutoff_age = today - timedelta(days=max_age_days)
+    count = 0
+
+    for path in sorted(job_store_dir.glob("job_*.json")):
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if job.get("status") != "active":
+            continue
+
+        should_expire = False
+        close_date_str = job.get("close_date") or ""
+        if close_date_str:
+            try:
+                cd = date.fromisoformat(close_date_str[:10])
+                if cd <= cutoff_close:
+                    should_expire = True
+            except ValueError:
+                pass
+        else:
+            collected_str = job.get("collected_at") or ""
+            if collected_str:
+                try:
+                    ca = datetime.fromisoformat(collected_str).date()
+                    if ca <= cutoff_age:
+                        should_expire = True
+                except ValueError:
+                    pass
+
+        if should_expire:
+            job["status"] = "expired"
+            path.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
+            count += 1
+
+    return {"marked_expired": count}
+
+
+# ---------------------------------------------------------------------------
 
 def _job_path(job_id: str, job_store_dir: Path) -> Path:
     return job_store_dir / f"{job_id}.json"
@@ -95,6 +215,7 @@ def write_positions(
             })
             continue
 
+        raw_text = item.get("raw_text") or ""
         job = {
             "job_id": job_id,
             "status": "active",
@@ -103,8 +224,9 @@ def write_positions(
             "source_url": item.get("source_url") or "",
             "title_guess": item.get("title_guess") or "",
             "company_hint": item.get("company_hint") or "",
-            "raw_text": item.get("raw_text") or "",
+            "raw_text": raw_text,
             "collected_at": item.get("collected_at") or "",
+            "close_date": item.get("close_date") or _extract_close_date(raw_text),
             "match_score": None,
             "score_breakdown": None,
             "batch_selected": False,

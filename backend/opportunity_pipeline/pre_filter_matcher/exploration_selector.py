@@ -37,21 +37,24 @@ def select_exploration_slots(
     top_jobs: List[Dict[str, Any]],
     num_slots: int,
     config: Dict[str, Any],
+    reviewed_ids: "set[str] | None" = None,
 ) -> List[Dict[str, Any]]:
     """
     scored_jobs: ALL scored jobs sorted by overall_score descending.
     top_jobs: the already-selected top-N jobs (before exploration).
     num_slots: number of exploration slots to fill (1 or 2).
     config: matching_config dict (used for role_archetypes).
+    reviewed_ids: job_ids already judged by the consultant — excluded from candidates.
 
     Returns a list of exploration candidates (length <= num_slots).
     """
     archetypes = config.get("role_archetypes") or []
     top_ids = {j["job_id"] for j in top_jobs}
+    excluded = top_ids | (reviewed_ids or set())
     top_archetypes = {_detect_archetype(j, archetypes) for j in top_jobs}
 
     # Candidates: positions ranked 9–20 (outside the core top selections)
-    candidates = [j for j in scored_jobs if j["job_id"] not in top_ids][:20]
+    candidates = [j for j in scored_jobs if j["job_id"] not in excluded][:20]
 
     if not candidates:
         return []
