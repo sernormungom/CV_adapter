@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 from backend.config import DATA_DIR
+from backend.cv_importer.profile_merger import merge_profiles
 
 
 # ── ID generation ──────────────────────────────────────────────────────────────
@@ -35,6 +36,22 @@ def _assign_ids(data: dict) -> dict:
             gap["gap_id"] = f"g_{_new_id()}"
 
     return data
+
+
+# ── existing profile loader ────────────────────────────────────────────────────
+
+def _load_existing_profile(profile_path: Path) -> dict | None:
+    try:
+        text = profile_path.read_text(encoding="utf-8")
+        start = text.find("```yaml\n")
+        end = text.rfind("\n```")
+        if start == -1 or end == -1:
+            return None
+        yaml_text = text[start + 8 : end]
+        data = yaml.safe_load(yaml_text)
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
 
 
 # ── consultant_id derivation ───────────────────────────────────────────────────
@@ -229,7 +246,7 @@ def profile_to_form_data(full_profile: dict) -> dict:
 
 # ── main entry point ───────────────────────────────────────────────────────────
 
-def write_profile(
+async def write_profile(
     data: dict,
     source_tmp_path: Path | None = None,
     source_filename: str | None = None,
@@ -248,10 +265,8 @@ def write_profile(
     full_name: str = data["identity"]["full_name"]
     consultant_id = username if username else _derive_consultant_id(full_name)
 
-    data = _assign_ids(data)
-
-    # Archive the original uploaded CV (v1.1 §0.2)
-    source_archive: str | None = None
+    # Archive the original uploaded CV before any merging (v1.1 §0.2)
+    new_archive: str | None = None
     consultant_dir: Path = DATA_DIR / consultant_id
     consultant_dir.mkdir(parents=True, exist_ok=True)
 
@@ -260,21 +275,58 @@ def write_profile(
         uploads_dir.mkdir(exist_ok=True)
         dest = uploads_dir / (source_filename or source_tmp_path.name)
         shutil.move(str(source_tmp_path), str(dest))
-        source_archive = f"uploads/{dest.name}"
+        new_archive = f"uploads/{dest.name}"
     elif source_tmp_path:
         source_tmp_path.unlink(missing_ok=True)
+
+    # Merge into existing profile if one already exists
+    profile_path = consultant_dir / "profile.md"
+    merge_errors: list[dict] = []
+    existing_profile = _load_existing_profile(profile_path)
+
+    if existing_profile is not None:
+        merged_data, merge_errors = await merge_profiles(existing_profile, data)
+        if merged_data is not None:
+            data = merged_data
+        # On merge failure fall through with the new extraction as-is
+
+    data = _assign_ids(data)
+
+    # Build source_archives list: carry forward existing entries, append new one
+    existing_archives: list[str] = []
+    if existing_profile is not None:
+        prev = existing_profile.get("metadata", {}).get("source_archives") or []
+        if isinstance(prev, list):
+            existing_archives = prev
+        elif isinstance(prev, str) and prev:
+            existing_archives = [prev]
+        # also handle legacy scalar field name
+        if not existing_archives:
+            legacy = existing_profile.get("metadata", {}).get("source_archive")
+            if isinstance(legacy, list):
+                existing_archives = legacy
+            elif isinstance(legacy, str) and legacy:
+                existing_archives = [legacy]
+
+    source_archives = existing_archives + ([new_archive] if new_archive else [])
+
+    created_at = (
+        existing_profile.get("metadata", {}).get("created_at", now)
+        if existing_profile is not None
+        else now
+    )
 
     full_profile = {
         "metadata": {
             "schema_version": "1.1",
             "consultant_id": consultant_id,
-            "created_at": now,
+            "created_at": created_at,
             "updated_at": now,
             "as_of": as_of,
-            **({"source_archive": source_archive} if source_archive else {}),
+            **({"source_archives": source_archives} if source_archives else {}),
         },
         "identity": data.get("identity", {}),
-        "preferences": {},
+        "preferences": existing_profile.get("preferences", {}) if existing_profile else {},
         "education": data.get("education", []),
         "career_history": data.get("career_history", {}),
         "gaps": data.get("gaps", []),
@@ -309,5 +361,6 @@ def write_profile(
         "skills_count": len(tools),
         "open_gaps": len(open_gaps),
         "blocking_gaps": len(blocking_gaps),
+        "merge_errors": merge_errors,
         "form_data": profile_to_form_data(full_profile),
     }

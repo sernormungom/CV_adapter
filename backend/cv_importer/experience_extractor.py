@@ -45,7 +45,7 @@ OUTPUT RULES:
 """
 
 
-async def extract_experience(raw_text: str) -> tuple[dict | None, list[dict]]:
+async def extract_experience(raw_text: str) -> tuple[dict | None, list[dict], str]:
     schema = _SCHEMA_PATH.read_text(encoding="utf-8")
     system_prompt = _SYSTEM_TEMPLATE.format(schema=schema)
 
@@ -81,18 +81,18 @@ async def extract_experience(raw_text: str) -> tuple[dict | None, list[dict]]:
         data = yaml.safe_load(raw)
     except yaml.YAMLError as exc:
         logger.error("YAML parse failed: %s\nRaw output was:\n%s", exc, raw[:800])
-        return None, [{"kind": "parse_error", "context": str(exc)}]
+        return None, [{"kind": "parse_error", "context": str(exc)}], raw
 
     if not isinstance(data, dict):
         logger.error("LLM returned non-dict (%s). Raw: %s", type(data).__name__, raw[:400])
-        return None, [{"kind": "parse_error", "context": f"Expected YAML mapping, got {type(data).__name__}"}]
+        return None, [{"kind": "parse_error", "context": f"Expected YAML mapping, got {type(data).__name__}"}], raw
 
     # Genuine hard errors (contradictory/unparseable input) still block persisting
     if "error" in data:
         err = data["error"]
         logger.error("LLM reported a hard error: %s", err)
         errors = [err] if isinstance(err, dict) else [{"kind": "other", "context": str(err)}]
-        return None, errors
+        return None, errors, raw
 
     logger.info(
         "Extraction OK — top-level keys: %s, gaps: %d",
@@ -101,4 +101,4 @@ async def extract_experience(raw_text: str) -> tuple[dict | None, list[dict]]:
     )
     # Gaps and needs_review flags are normal v1.1 output — they are NOT errors.
     # Return the data as-is; the Writer will handle gaps and assign IDs.
-    return data, []
+    return data, [], raw

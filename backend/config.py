@@ -6,6 +6,7 @@ load_dotenv()
 
 ANTHROPIC_API_KEY: str = os.environ["ANTHROPIC_API_KEY"]
 DATA_DIR: Path = Path(os.getenv("DATA_DIR", "data/profiles"))
+DEBUG_CV_IMPORT: bool = os.getenv("DEBUG_CV_IMPORT", "false").lower() == "true"
 JOB_STORE_DIR: Path = Path(os.getenv("JOB_STORE_DIR", "data/job_store/jobs"))
 APPLICATION_TRACKER_DIR: Path = Path(os.getenv("APPLICATION_TRACKER_DIR", "data/application_tracker"))
 TA_CONFIG_DIR: Path = Path(os.getenv("TA_CONFIG_DIR", "data/ta_config"))

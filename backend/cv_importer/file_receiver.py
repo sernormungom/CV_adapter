@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, Form, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 
+from backend.config import DATA_DIR, DEBUG_CV_IMPORT
 from backend.cv_importer.cv_parser import extract_text
 from backend.cv_importer.experience_extractor import extract_experience
 from backend.cv_importer.experience_writer import write_profile
@@ -57,7 +58,7 @@ async def import_cv(
         tmp_path.unlink(missing_ok=True)
         raise HTTPException(status_code=422, detail="Could not extract text from file.")
 
-    profile_data, errors = await extract_experience(raw_text)
+    profile_data, errors, llm_raw = await extract_experience(raw_text)
 
     if profile_data is None:
         tmp_path.unlink(missing_ok=True)
@@ -70,11 +71,19 @@ async def import_cv(
     datestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     original_name = f"{datestamp}_{Path(file.filename or 'cv').name}"
 
-    result = write_profile(
+    result = await write_profile(
         profile_data,
         source_tmp_path=tmp_path,
         source_filename=original_name,
         username=username.strip() or None,
     )
     result["extraction_errors"] = errors
+
+    if DEBUG_CV_IMPORT and result.get("success") and result.get("consultant_id"):
+        uploads_dir = DATA_DIR / result["consultant_id"] / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        stem = Path(file.filename or "cv").stem
+        (uploads_dir / f"{datestamp}_{stem}_extracted.txt").write_text(raw_text, encoding="utf-8")
+        (uploads_dir / f"{datestamp}_{stem}_llm_raw.yaml").write_text(llm_raw, encoding="utf-8")
+
     return JSONResponse(content=result)

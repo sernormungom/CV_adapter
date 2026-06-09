@@ -42,6 +42,7 @@ All variables are read by `backend/config.py` via `python-dotenv`. Directories a
 | `JOB_STORE_DIR` | no | `data/job_store/jobs` | Directory where scraped job JSON files are written |
 | `APPLICATION_TRACKER_DIR` | no | `data/application_tracker` | Directory for per-consultant verdict files |
 | `TA_CONFIG_DIR` | no | `data/ta_config` | Directory for job source configs and browser profiles |
+| `DEBUG_CV_IMPORT` | no | `false` | When `true`, saves two sidecar files per import alongside the archived CV (see [Debugging a bad CV import](#debugging-a-bad-cv-import)) |
 
 ---
 
@@ -212,6 +213,32 @@ Check the `uvicorn` terminal output. Common causes: invalid or expired API key, 
 ### "Collect Jobs" returns no results
 
 The Playwright session may have expired. Reset the browser profile for the affected source (see [Browser profiles](#browser-profiles)) and retry.
+
+### Debugging a bad CV import
+
+If `profile.md` looks empty or wrong after an import, enable debug output to inspect what the parser extracted and what the LLM received:
+
+1. Add `DEBUG_CV_IMPORT=true` to your `.env` file (or set it in the shell before starting the server).
+2. Re-upload the CV.
+3. Two sidecar files appear in the consultant's `uploads/` folder alongside the archived CV:
+
+| File | Contains |
+|---|---|
+| `<date>_<filename>_extracted.txt` | The plain text the CV parser handed to the LLM — check this first. If it is empty or garbled, the issue is in `cv_parser.py` (e.g. a table-heavy Word document, a scanned/image PDF). |
+| `<date>_<filename>_llm_raw.yaml` | The raw YAML the LLM returned before any parsing — if the extracted text looks good but the profile is wrong, the issue is in the LLM prompt or schema. |
+
+Common root causes:
+
+| Symptom | Likely cause |
+|---|---|
+| `_extracted.txt` has only a few lines / section headings | Word CV uses tables for layout — check that the DOCX parser walks tables (`cv_parser.py → _extract_docx`) |
+| `_extracted.txt` is blank or contains garbled characters | PDF is scanned (image-only) or has encoding issues — `pdfplumber` cannot OCR images |
+| `_llm_raw.yaml` has `error:` or `needs_review: true` on everything | CV text was too short or ambiguous; check extraction prompt in `experience_extractor.py` |
+| `_llm_raw.yaml` is valid YAML but `profile.md` looks wrong | YAML parse succeeded but data did not pass `_validate()` in `experience_writer.py` |
+
+Remove `DEBUG_CV_IMPORT=true` (or set it back to `false`) when done — sidecar files are only for diagnostic use and are not cleaned up automatically.
+
+---
 
 ### `matching_config.pending.yaml` keeps appearing
 
