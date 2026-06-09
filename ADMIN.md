@@ -180,7 +180,7 @@ Key points:
 - Designed for single-machine, single-user local deployment
 - CORS is currently open (`allow_origins=["*"]`) in `backend/main.py` — restrict this if exposing to a network
 - The `--reload` flag in `uvicorn` is for development only; remove it in production
-- If changing the backend port, update any hardcoded `localhost:8000` references in `html/cv-builder-mpya-import_ver5 1.html` and `html/opportunity-dashboard.html`
+- If changing the backend port, update any hardcoded `localhost:8000` references in `html/cv-importer.html` and `html/opportunity-dashboard.html`
 
 ---
 

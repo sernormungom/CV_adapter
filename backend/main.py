@@ -37,7 +37,7 @@ app.include_router(dashboard_router, prefix="/api/dashboard")
 app.include_router(learning_router, prefix="/api/opportunities")
 
 _HTML_DIR = Path(__file__).parent.parent / "html"
-_HTML_FILE = _HTML_DIR / "cv-builder-mpya-import_ver5 1.html"
+_HTML_FILE = _HTML_DIR / "cv-importer.html"
 _DASHBOARD_FILE = _HTML_DIR / "opportunity-dashboard.html"
 _PROFILES_DIR = Path(__file__).parent.parent / "data" / "profiles"
 
