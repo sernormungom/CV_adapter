@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opportunity Dashboard – Mpya</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;
+  --grey:#e5e1da;--grey-mid:#d8d4cc;--grey-dark:#ccc8c0;
+  --sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;
+  --green:#2a7a3b;--amber:#b86200;--red:#b71c1c;--blue:#1565c0;
+}
+html,body{height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+
+/* ── TOP BAR ── */
+header{background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--serif);font-size:17px;color:#fff;letter-spacing:.03em;background:var(--acc);padding:5px 14px;border-radius:2px}
+.hbtns{display:flex;gap:8px;align-items:center}
+.hbtn{display:inline-flex;align-items:center;padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;border:1px solid transparent;transition:all .15s;background:var(--acc);color:#fff;border-color:var(--acc)}
+.hbtn:hover{background:#6e1860;border-color:#6e1860}
+.hbtn:disabled{opacity:.45;cursor:not-allowed}
+.hbtn-ghost{background:transparent;border-color:#555;color:#ccc}
+.hbtn-ghost:hover{background:#333;border-color:#888;color:#fff}
+.status-chip{font-size:11px;font-weight:600;padding:4px 10px;border-radius:10px;background:#333;color:#ccc;letter-spacing:.04em}
+.status-chip.ok{background:#1b4d27;color:#7fe898}
+.status-chip.warn{background:#4a2800;color:#ffb74d}
+
+/* ── MAIN LAYOUT ── */
+main{max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.toolbar h1{font-family:var(--serif);font-size:22px;color:#1a1a1a;flex:1}
+.info-bar{background:#f0ede7;border:1px solid var(--grey-dark);border-radius:2px;padding:8px 14px;font-size:12px;color:var(--ink-mid);margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap}
+.info-bar strong{color:var(--ink)}
+
+/* ── POSITION CARDS ── */
+.cards{display:flex;flex-direction:column;gap:14px}
+.card{background:#f4f3f1;border:1px solid var(--grey-dark);border-radius:2px;overflow:hidden}
+.card-head{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;padding:12px 14px 10px;border-bottom:1px solid var(--grey-mid)}
+.card-title{font-family:var(--serif);font-size:15px;color:var(--ink);font-weight:600}
+.card-meta{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.card-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--grey-mid);color:var(--ink-mid)}
+.badge.keep{background:#c8e6c9;color:#1b5e20}
+.badge.maybe{background:#fff3e0;color:#e65100}
+.badge.reject{background:#ffcdd2;color:#b71c1c}
+.badge.blocker{background:#ffcdd2;color:#b71c1c}
+
+/* Score bar */
+.score-row{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#eceae6;border-bottom:1px solid var(--grey-mid)}
+.score-label{font-size:11px;font-weight:600;color:var(--ink-mid);width:80px;flex-shrink:0}
+.score-bar-wrap{flex:1;height:8px;background:#d8d5cf;border-radius:4px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:4px;transition:width .3s}
+.score-bar-fill.high{background:var(--green)}
+.score-bar-fill.mid{background:var(--amber)}
+.score-bar-fill.low{background:var(--red)}
+.score-num{font-size:12px;font-weight:600;width:36px;text-align:right;flex-shrink:0}
+.score-num.high{color:var(--green)}
+.score-num.mid{color:var(--amber)}
+.score-num.low{color:var(--red)}
+.breakdown-toggle{font-size:10px;color:var(--acc);cursor:pointer;padding:0 14px 4px;background:#eceae6;border-bottom:1px solid var(--grey-mid);display:block;user-select:none}
+.breakdown-toggle:hover{text-decoration:underline}
+.breakdown-panel{display:none;padding:8px 14px;background:#eceae6;border-bottom:1px solid var(--grey-mid)}
+.breakdown-panel.open{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.dim-item{font-size:11px;color:var(--ink-mid)}
+.dim-item strong{color:var(--ink)}
+
+/* Raw text */
+.raw-text-toggle{font-size:11px;font-weight:600;color:var(--acc);cursor:pointer;padding:8px 14px;border-bottom:1px solid var(--grey-mid);display:block;user-select:none}
+.raw-text-toggle:hover{background:#eceae6}
+.raw-text-wrap{display:none;padding:10px 14px;border-bottom:1px solid var(--grey-mid)}
+.raw-text-wrap.open{display:block}
+.raw-text-wrap pre{font-family:'Courier New',monospace;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow-y:auto;background:#fff;border:1px solid var(--grey-dark);border-radius:2px;padding:10px 12px;color:#333}
+
+/* Verdict area */
+.verdict-area{padding:10px 14px}
+.verdict-label{font-size:11px;font-weight:600;color:var(--ink-mid);margin-bottom:7px}
+.verdict-btns{display:flex;gap:8px;margin-bottom:8px}
+.vbtn{padding:5px 16px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;border:2px solid transparent;transition:all .15s;background:#f4f3f1;color:var(--ink-mid);border-color:var(--grey-dark)}
+.vbtn:hover{border-color:var(--acc);color:var(--acc)}
+.vbtn.selected-yes{background:#c8e6c9;border-color:#2a7a3b;color:#1b5e20}
+.vbtn.selected-maybe{background:#fff3e0;border-color:#e65100;color:#bf360c}
+.vbtn.selected-no{background:#ffcdd2;border-color:#b71c1c;color:#b71c1c}
+.reason-wrap{display:none}
+.reason-wrap.visible{display:block}
+.reason-wrap textarea{width:100%;font-family:var(--sans);font-size:12px;color:#222;background:#fff;border:1px solid var(--grey-dark);border-radius:2px;padding:6px 8px;resize:vertical;min-height:48px;outline:none;transition:border-color .15s}
+.reason-wrap textarea:focus{border-color:var(--acc)}
+.reason-wrap .req-note{font-size:10px;color:#b71c1c;margin-top:2px}
+.verdict-done{font-size:11px;font-weight:600;padding:4px 10px;border-radius:10px;display:inline-block;margin-top:4px}
+.verdict-done.yes{background:#c8e6c9;color:#1b5e20}
+.verdict-done.maybe{background:#fff3e0;color:#bf360c}
+.verdict-done.no{background:#ffcdd2;color:#b71c1c}
+
+/* Config proposal panel */
+.proposal-panel{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:2px;padding:16px;margin-top:20px}
+.proposal-panel h2{font-family:var(--serif);font-size:17px;color:#1b5e20;margin-bottom:8px}
+.proposal-panel p{font-size:12px;color:#2e7d32;margin-bottom:10px}
+.diff-pre{font-family:'Courier New',monospace;font-size:11px;background:#fff;border:1px solid #a5d6a7;border-radius:2px;padding:10px;max-height:300px;overflow:auto;white-space:pre-wrap;color:#333;margin-bottom:12px}
+.proposal-btns{display:flex;gap:10px}
+
+/* Submit bar */
+.submit-bar{background:#1a1a1a;position:fixed;bottom:0;left:0;right:0;padding:10px 24px;display:flex;align-items:center;gap:14px;z-index:100}
+.submit-progress{font-size:12px;color:#ccc}
+.submit-progress strong{color:#fff}
+
+/* Toast */
+.toast-container{position:fixed;bottom:70px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:200}
+.toast{padding:9px 16px;border-radius:2px;font-size:12px;font-weight:600;color:#fff;animation:fade-in .2s ease}
+.toast.ok{background:#2a7a3b}
+.toast.err{background:#b71c1c}
+.toast.warn{background:#b86200}
+@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Empty / loading states */
+.empty-state{text-align:center;padding:60px 20px;color:var(--ink-soft)}
+.empty-state h2{font-family:var(--serif);font-size:20px;margin-bottom:8px;color:var(--ink-mid)}
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid #ccc;border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.warn-chip{background:#fff3e0;border:1px solid #ffcc80;color:#bf360c;font-size:11px;padding:4px 10px;border-radius:10px;display:inline-block;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Mpya <em>Opp</em></div>
+  <div class="hbtns">
+    <span class="status-chip" id="statusChip">Loading…</span>
+    <button class="hbtn hbtn-ghost" onclick="goToCV()">← CV Builder</button>
+    <button class="hbtn" id="collectBtn" onclick="runCycle()">⚡ Collect &amp; Score Jobs</button>
+  </div>
+</header>
+
+<main>
+  <div class="toolbar">
+    <h1>Opportunity Dashboard</h1>
+    <span id="consultantLabel" style="font-size:12px;color:#555"></span>
+  </div>
+
+  <div class="info-bar" id="infoBar" style="display:none">
+    <span><strong id="iTotal">0</strong> active positions</span>
+    <span><strong id="iBatch">0</strong> in current batch</span>
+    <span><strong id="iVerdicts">0</strong> verdicts given</span>
+    <span id="iBatchWarn" style="display:none" class="warn-chip"></span>
+  </div>
+
+  <div id="cardsContainer">
+    <div class="empty-state">
+      <h2>No positions loaded yet</h2>
+      <p>Click <strong>Collect &amp; Score Jobs</strong> to start a collection cycle.</p>
+    </div>
+  </div>
+
+  <div id="proposalPanel" class="proposal-panel" style="display:none">
+    <h2>Matching Config Update Proposal</h2>
+    <p>The Learning Module has analysed your verdicts and proposes the following changes to your matching configuration. Review and confirm or discard.</p>
+    <pre class="diff-pre" id="proposalDiff"></pre>
+    <div class="proposal-btns">
+      <button class="hbtn" onclick="confirmConfig()">✓ Confirm Update</button>
+      <button class="hbtn hbtn-ghost" onclick="discardConfig()">✗ Discard</button>
+    </div>
+  </div>
+</main>
+
+<div class="submit-bar" id="submitBar" style="display:none">
+  <span class="submit-progress" id="submitProgress"></span>
+  <button class="hbtn" id="submitBtn" onclick="submitAllVerdicts()" disabled>Submit All Verdicts</button>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const API = 'http://localhost:8000/api/dashboard';
+let consultantId = null;
+let positions = [];
+let verdicts = {};   // job_id -> {verdict, reason}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  consultantId = params.get('consultant_id') || localStorage.getItem('consultant_id');
+  if (!consultantId) {
+    document.getElementById('cardsContainer').innerHTML =
+      '<div class="empty-state"><h2>No consultant selected</h2><p>Go back to the CV Builder and import a CV first.</p></div>';
+    return;
+  }
+  document.getElementById('consultantLabel').textContent = consultantId.replace(/_/g, ' ');
+  loadPositions();
+  refreshStatus();
+});
+
+// ── API helpers ───────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const resp = await fetch(`${API}/${consultantId}${path}`, opts);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail || resp.statusText);
+  }
+  return resp.json();
+}
+
+// ── Load positions ────────────────────────────────────────────────────────
+async function loadPositions() {
+  try {
+    const data = await api('GET', '/positions');
+    positions = data.positions || [];
+    // Restore existing verdicts from server-side response
+    verdicts = {};
+    for (const pos of positions) {
+      if (pos.verdict) {
+        verdicts[pos.job_id] = { verdict: pos.verdict, reason: pos.reason || '' };
+      }
+    }
+    renderCards();
+    updateSubmitBar();
+  } catch (e) {
+    toast(`Failed to load positions: ${e.message}`, 'err');
+  }
+}
+
+async function refreshStatus() {
+  try {
+    const s = await api('GET', '/status');
+    const chip = document.getElementById('statusChip');
+    const done = s.cycle_complete;
+    chip.textContent = done ? `${s.verdicts_given}/${s.batch_size} complete` : `${s.verdicts_given}/${s.batch_size} verdicts`;
+    chip.className = 'status-chip ' + (done ? 'ok' : 'warn');
+    document.getElementById('iTotal').textContent = s.total_active_jobs;
+    document.getElementById('iBatch').textContent = s.batch_size;
+    document.getElementById('iVerdicts').textContent = s.verdicts_given;
+    document.getElementById('infoBar').style.display = 'flex';
+    const batchWarn = document.getElementById('iBatchWarn');
+    if (s.batch_size > 0 && s.batch_size < 10) {
+      batchWarn.textContent = `Showing ${s.batch_size}/10 — collect more jobs to fill the batch`;
+      batchWarn.style.display = 'inline-block';
+    } else {
+      batchWarn.style.display = 'none';
+    }
+    if (s.pending_config_update) {
+      loadProposal();
+    }
+  } catch (e) { /* ignore status errors */ }
+}
+
+// ── Render cards ──────────────────────────────────────────────────────────
+function renderCards() {
+  const container = document.getElementById('cardsContainer');
+  if (!positions.length) {
+    container.innerHTML = '<div class="empty-state"><h2>No positions in current batch</h2><p>Click <strong>Collect &amp; Score Jobs</strong> to run a collection and scoring cycle.</p></div>';
+    document.getElementById('submitBar').style.display = 'none';
+    return;
+  }
+  container.innerHTML = positions.map((pos, idx) => cardHTML(pos, idx)).join('');
+  // Restore verdict UI state
+  for (const [jid, v] of Object.entries(verdicts)) {
+    applyVerdictUI(jid, v.verdict, v.reason);
+  }
+  document.getElementById('submitBar').style.display = 'flex';
+}
+
+function scoreClass(s) {
+  if (s === null || s === undefined) return 'low';
+  return s >= 76 ? 'high' : s >= 58 ? 'mid' : 'low';
+}
+
+function statusBadge(pos) {
+  const r = pos.recommended_status;
+  const label = { keep: '✓ Keep', maybe: '~ Maybe', reject: '✗ Reject' }[r] || r || '';
+  return label ? `<span class="badge ${r}">${label}</span>` : '';
+}
+
+function cardHTML(pos, idx) {
+  const sc = pos.match_score;
+  const scClass = scoreClass(sc);
+  const scLabel = sc !== null && sc !== undefined ? sc.toFixed(0) + '%' : '—';
+  const scWidth = sc !== null ? Math.max(2, sc) : 0;
+
+  const hardBlockers = (pos.hard_blockers || []).map(b =>
+    `<span class="badge blocker">⚠ ${b}</span>`).join('');
+
+  const breakdown = pos.score_breakdown || {};
+  const dimRows = Object.entries(breakdown)
+    .filter(([k]) => k !== 'risk_deduction')
+    .map(([k, v]) => {
+      const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      return `<div class="dim-item"><strong>${label}:</strong> ${v !== null ? v.toFixed(1) : '—'}</div>`;
+    }).join('');
+  const riskRow = breakdown.risk_deduction
+    ? `<div class="dim-item" style="color:var(--red)"><strong>Risk deduction:</strong> −${breakdown.risk_deduction.toFixed(1)}</div>`
+    : '';
+
+  return `
+<div class="card" id="card-${pos.job_id}">
+  <div class="card-head">
+    <div>
+      <div class="card-title">${idx + 1}. ${esc(pos.title_guess || 'Untitled')}</div>
+      <div class="card-meta">${esc(pos.source_id || '')}${pos.company_hint ? ' · ' + esc(pos.company_hint) : ''}${pos.collected_at ? ' · ' + pos.collected_at.slice(0,10) : ''}</div>
+      <div class="card-badges">${statusBadge(pos)}${hardBlockers}</div>
+    </div>
+    ${pos.source_url ? `<a href="${esc(pos.source_url)}" target="_blank" style="font-size:10px;color:var(--acc);white-space:nowrap;margin-top:2px">Open ↗</a>` : ''}
+  </div>
+
+  <div class="score-row">
+    <span class="score-label">Match score</span>
+    <div class="score-bar-wrap"><div class="score-bar-fill ${scClass}" style="width:${scWidth}%"></div></div>
+    <span class="score-num ${scClass}">${scLabel}</span>
+  </div>
+
+  ${dimRows || riskRow ? `
+  <span class="breakdown-toggle" onclick="toggleBreakdown('${pos.job_id}')">▸ Score breakdown</span>
+  <div class="breakdown-panel" id="bd-${pos.job_id}">${dimRows}${riskRow}</div>
+  ` : ''}
+
+  <span class="raw-text-toggle" onclick="toggleRaw('${pos.job_id}')">▸ Full job description (raw)</span>
+  <div class="raw-text-wrap" id="raw-${pos.job_id}">
+    <pre>${esc(pos.raw_text || '(no text)')}</pre>
+  </div>
+
+  <div class="verdict-area" id="va-${pos.job_id}">
+    <div class="verdict-label">Your verdict</div>
+    <div class="verdict-btns">
+      <button class="vbtn" id="vbtn-yes-${pos.job_id}" onclick="setVerdict('${pos.job_id}','yes')">✓ Yes</button>
+      <button class="vbtn" id="vbtn-maybe-${pos.job_id}" onclick="setVerdict('${pos.job_id}','maybe')">? Maybe</button>
+      <button class="vbtn" id="vbtn-no-${pos.job_id}" onclick="setVerdict('${pos.job_id}','no')">✗ No</button>
+    </div>
+    <div class="reason-wrap" id="rw-${pos.job_id}">
+      <textarea id="reason-${pos.job_id}" placeholder="Why not / why maybe? (required)" oninput="onReasonInput('${pos.job_id}')"></textarea>
+      <div class="req-note">Reason is required for No and Maybe verdicts.</div>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── Verdict interactions ──────────────────────────────────────────────────
+function setVerdict(jobId, verdict) {
+  const existing = verdicts[jobId] || {};
+  if (existing.verdict === verdict) return; // no change
+  verdicts[jobId] = { verdict, reason: existing.reason || '' };
+  applyVerdictUI(jobId, verdict, verdicts[jobId].reason);
+  saveVerdictToServer(jobId, verdict, verdicts[jobId].reason);
+}
+
+function applyVerdictUI(jobId, verdict, reason) {
+  for (const v of ['yes','maybe','no']) {
+    const btn = document.getElementById(`vbtn-${v}-${jobId}`);
+    if (btn) btn.className = 'vbtn' + (v === verdict ? ` selected-${v}` : '');
+  }
+  const rw = document.getElementById(`rw-${jobId}`);
+  if (rw) {
+    rw.className = 'reason-wrap' + (verdict === 'no' || verdict === 'maybe' ? ' visible' : '');
+    const ta = document.getElementById(`reason-${jobId}`);
+    if (ta && reason) ta.value = reason;
+  }
+  updateSubmitBar();
+}
+
+function onReasonInput(jobId) {
+  const ta = document.getElementById(`reason-${jobId}`);
+  if (!ta) return;
+  const v = verdicts[jobId];
+  if (v) {
+    v.reason = ta.value;
+    verdicts[jobId] = v;
+    saveVerdictToServer(jobId, v.verdict, ta.value);
+  }
+}
+
+async function saveVerdictToServer(jobId, verdict, reason) {
+  if ((verdict === 'no' || verdict === 'maybe') && !reason.trim()) return; // wait for reason
+  try {
+    await api('POST', '/verdict', { job_id: jobId, verdict, reason: reason.trim() });
+  } catch (e) {
+    toast(`Verdict save failed: ${e.message}`, 'err');
+  }
+  updateSubmitBar();
+  refreshStatus();
+}
+
+// ── Submit bar ────────────────────────────────────────────────────────────
+function updateSubmitBar() {
+  const total = positions.length;
+  let done = 0;
+  for (const pos of positions) {
+    const v = verdicts[pos.job_id];
+    if (!v) continue;
+    if (v.verdict === 'yes') done++;
+    else if ((v.verdict === 'no' || v.verdict === 'maybe') && v.reason.trim()) done++;
+  }
+  document.getElementById('submitProgress').innerHTML =
+    `<strong>${done}</strong> of <strong>${total}</strong> verdicts complete`;
+  document.getElementById('submitBtn').disabled = (done < total || total === 0);
+}
+
+async function submitAllVerdicts() {
+  document.getElementById('submitBtn').disabled = true;
+  try {
+    const result = await api('POST', '/complete-cycle', {});
+    toast('Cycle submitted!', 'ok');
+    if (result.config_proposal) {
+      showProposal(result.config_proposal);
+    } else {
+      toast(result.warning || 'No config update proposed.', 'warn');
+    }
+    refreshStatus();
+  } catch (e) {
+    toast(`Submit failed: ${e.message}`, 'err');
+    document.getElementById('submitBtn').disabled = false;
+  }
+}
+
+// ── Config proposal ───────────────────────────────────────────────────────
+async function loadProposal() {
+  try {
+    const resp = await fetch(`http://localhost:8000/api/opportunities/pending-config?consultant_id=${consultantId}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.diff) showProposal(data);
+  } catch (e) { /* ignore */ }
+}
+
+function showProposal(proposal) {
+  const panel = document.getElementById('proposalPanel');
+  const diffEl = document.getElementById('proposalDiff');
+  panel.style.display = 'block';
+  if (proposal.diff) {
+    diffEl.textContent = typeof proposal.diff === 'string'
+      ? proposal.diff
+      : JSON.stringify(proposal.diff, null, 2);
+  } else if (proposal.rationale) {
+    diffEl.textContent = proposal.rationale;
+  } else {
+    diffEl.textContent = JSON.stringify(proposal, null, 2);
+  }
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function confirmConfig() {
+  try {
+    await api('POST', '/confirm-config', {});
+    toast('Matching config updated!', 'ok');
+    document.getElementById('proposalPanel').style.display = 'none';
+  } catch (e) {
+    toast(`Failed: ${e.message}`, 'err');
+  }
+}
+
+async function discardConfig() {
+  try {
+    await api('POST', '/discard-config', {});
+    toast('Config update discarded.', 'warn');
+    document.getElementById('proposalPanel').style.display = 'none';
+  } catch (e) {
+    toast(`Failed: ${e.message}`, 'err');
+  }
+}
+
+// ── Collect cycle ─────────────────────────────────────────────────────────
+async function runCycle() {
+  const btn = document.getElementById('collectBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Collecting…';
+  toast('Collecting and scoring jobs…', 'warn');
+  try {
+    const result = await api('POST', '/run-cycle', {});
+    const c = result.collection || {};
+    const m = result.matching || {};
+    toast(`Done: ${c.new} new, ${c.duplicate} dup, ${result.batch_size} in batch`, 'ok');
+    if (c.error > 0 && c.error_details && c.error_details.length) {
+      const msgs = c.error_details.map(e => `[${e.source_id}] ${e.error}`).join('\n');
+      setTimeout(() => toast(`Source errors (${c.error}):\n${msgs}`, 'err'), 800);
+    }
+    await loadPositions();
+    refreshStatus();
+  } catch (e) {
+    toast(`Cycle failed: ${e.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '⚡ Collect &amp; Score Jobs';
+  }
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────
+function goToCV() {
+  window.location.href = '/?user=' + encodeURIComponent(consultantId || '');
+}
+
+// ── UI toggles ────────────────────────────────────────────────────────────
+function toggleBreakdown(jobId) {
+  const el = document.getElementById(`bd-${jobId}`);
+  const tog = el?.previousElementSibling;
+  if (!el) return;
+  const open = el.classList.toggle('open');
+  if (tog) tog.textContent = (open ? '▾ ' : '▸ ') + 'Score breakdown';
+}
+
+function toggleRaw(jobId) {
+  const el = document.getElementById(`raw-${jobId}`);
+  if (!el) return;
+  const open = el.classList.toggle('open');
+  const tog = el.previousElementSibling;
+  if (tog) tog.textContent = (open ? '▾ ' : '▸ ') + 'Full job description (raw)';
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
