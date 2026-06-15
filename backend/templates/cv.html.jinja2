@@ -16,9 +16,10 @@ html,body{font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:
 @media print{
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   html,body{background:#fff!important;margin:0;padding:0}
-  .cvs{box-shadow:none!important;max-width:100%!important;width:100%!important}
+  .cvs{box-shadow:none!important;max-width:100%!important;width:100%!important;overflow:visible!important}
   .cvs::before{display:block!important}
   .cvs-exp-row{break-inside:avoid;page-break-inside:avoid}
+  .cvs-exp-row-r{overflow:visible!important}
   .cvs-sec-hd-row{break-after:avoid;page-break-after:avoid}
   @page{margin:0;size:A4 portrait}
 }

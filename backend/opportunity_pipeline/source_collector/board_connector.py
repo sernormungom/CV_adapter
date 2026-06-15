@@ -2,10 +2,12 @@
 Source connector — iterates enabled job board sources and yields raw job items.
 
 Each item is a dict:
-  job_id       str   — stable SHA-1 hash of URL or content
+  job_id       str   — stable SHA-1 hash of native id, URL, or content
   source_id    str   — id field from sources.yaml
   source_type  str   — type field from sources.yaml
   source_url   str | None
+  source_native_id str | None — external posting id when available
+  identity_key str — canonical source identity used for dedupe/review exclusion
   title_guess  str   — first meaningful line of text
   company_hint str   — extracted or configured company name
   raw_text     str   — cleaned full text
@@ -97,6 +99,9 @@ def _normalize_url(url: str) -> str:
     query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
     skip_prefixes = ("utm_",)
     skip_exact = {"fbclid", "gclid"}
+    # Job detail URLs should identify the posting, not the current UI/session state.
+    if re.search(r"/(?:app/)?job-requests/\d+/?$", parsed.path, flags=re.I):
+        query = []
     clean_q = [(k, v) for k, v in query if not k.startswith(skip_prefixes) and k not in skip_exact]
     return urllib.parse.urlunsplit(
         (parsed.scheme.lower(), parsed.netloc.lower(), parsed.path.rstrip("/"),
@@ -104,12 +109,71 @@ def _normalize_url(url: str) -> str:
     )
 
 
-def stable_job_id(raw_text: str, source_url: Optional[str] = None) -> str:
+_NATIVE_ID_PATTERNS = [
+    re.compile(r"\bJob\s+Posting\s+ID\s*:\s*([A-Z0-9][A-Z0-9_-]{4,})\b", re.I),
+    re.compile(r"\b(?:Posting|Requisition|Req|Assignment)\s+ID\s*:\s*([A-Z0-9][A-Z0-9_-]{4,})\b", re.I),
+    re.compile(r"\b((?:VOLG|VOLVCA)JP\d{5,})\b", re.I),
+]
+
+
+def _normalize_native_id(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def extract_source_native_id(
+    raw_text: str,
+    source_url: Optional[str] = None,
+    local_path: Optional[str] = None,
+) -> str:
+    """Extract a source-owned posting identifier when the source exposes one."""
     if source_url:
-        key = "url:" + _normalize_url(source_url)
-    else:
-        body = re.sub(r"\s+", " ", raw_text.lower()).strip()
-        key = "content:" + body[:5000]
+        parsed = urllib.parse.urlsplit(source_url.strip())
+        m = re.search(r"/(?:app/)?job-requests/(\d+)/?$", parsed.path, flags=re.I)
+        if m:
+            return f"verama-{m.group(1)}"
+
+    for pattern in _NATIVE_ID_PATTERNS:
+        m = pattern.search(raw_text or "")
+        if m:
+            return _normalize_native_id(m.group(1))
+
+    if local_path:
+        stem = Path(local_path).stem
+        for pattern in _NATIVE_ID_PATTERNS:
+            m = pattern.search(stem)
+            if m:
+                return _normalize_native_id(m.group(1))
+        if re.fullmatch(r"[A-Z0-9][A-Z0-9_-]{5,}", stem, flags=re.I):
+            return _normalize_native_id(stem)
+
+    return ""
+
+
+def build_identity_key(
+    raw_text: str,
+    source_url: Optional[str] = None,
+    source_native_id: Optional[str] = None,
+    source_type: str = "",
+    source_id: str = "",
+) -> str:
+    if source_native_id:
+        source_scope = _normalize_native_id(source_type or source_id or "source")
+        return f"native:{source_scope}:{_normalize_native_id(source_native_id)}"
+    if source_url:
+        return "url:" + _normalize_url(source_url)
+    body = re.sub(r"\s+", " ", (raw_text or "").lower()).strip()
+    source_scope = _normalize_native_id(source_id or source_type or "source")
+    return f"content:{source_scope}:{hashlib.sha1(body[:5000].encode('utf-8')).hexdigest()[:16]}"
+
+
+def stable_job_id(
+    raw_text: str,
+    source_url: Optional[str] = None,
+    source_native_id: Optional[str] = None,
+    source_type: str = "",
+    source_id: str = "",
+) -> str:
+    key = build_identity_key(raw_text, source_url, source_native_id, source_type, source_id)
     return "job_" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]
 
 
@@ -169,10 +233,12 @@ def _iter_local_folder(source: Dict[str, Any], project_root: Path) -> Iterator[D
         if not path.is_file():
             continue
         text = clean_text(path.read_text(encoding="utf-8", errors="replace"))
+        source_url = _read_source_url_header(text)
         yield {
             "source_id": source.get("id", "local_folder"),
             "source_type": "local_folder",
-            "source_url": _read_source_url_header(text),
+            "source_url": source_url,
+            "source_native_id": extract_source_native_id(text, source_url, str(path)),
             "title_hint": None,
             "company_hint": None,
             "text": text,
@@ -408,12 +474,26 @@ def collect_from_sources(
             text = raw.get("text") or ""
             error = raw.get("error") or ""
             source_url = raw.get("source_url")
-            job_id = stable_job_id(text, source_url) if (text or source_url) else ""
+            source_id = raw.get("source_id") or source.get("id", "")
+            effective_source_type = raw.get("source_type") or source_type
+            source_native_id = raw.get("source_native_id") or extract_source_native_id(text, source_url)
+            identity_key = (
+                build_identity_key(text, source_url, source_native_id, effective_source_type, source_id)
+                if (text or source_url or source_native_id)
+                else ""
+            )
+            job_id = (
+                stable_job_id(text, source_url, source_native_id, effective_source_type, source_id)
+                if identity_key
+                else ""
+            )
             items.append({
                 "job_id": job_id,
-                "source_id": raw.get("source_id") or source.get("id", ""),
-                "source_type": raw.get("source_type") or source_type,
+                "source_id": source_id,
+                "source_type": effective_source_type,
                 "source_url": source_url or "",
+                "source_native_id": source_native_id,
+                "identity_key": identity_key,
                 "title_guess": extract_title_guess(text, raw.get("title_hint")),
                 "company_hint": raw.get("company_hint") or "",
                 "raw_text": text,

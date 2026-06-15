@@ -14,7 +14,7 @@ You receive the EXISTING profile (already structured, possibly consultant-review
 from a second uploaded CV. Your job is to produce a single enriched YAML that is strictly richer than
 either source — never losing information that exists in the existing profile.
 
-=== CONSULTANT PROFILE SCHEMA (v1.1) ===
+=== CONSULTANT PROFILE SCHEMA (v1.3) ===
 {schema}
 === END SCHEMA ===
 
@@ -46,14 +46,20 @@ CAREER HISTORY — role_groups:
 - For NEW role_groups not present in the existing profile: add wholesale with role_group_id: "".
 
 CAREER HISTORY — blocks within a matched role_group:
-- Match blocks by date range overlap within the same role_group.
-- For MATCHED blocks:
+- For consultant_via_employer role_groups: match blocks using client.name + role_title similarity
+  (not date range alone). Two blocks with the same client.name and same role_title whose date ranges
+  OVERLAP or are CONTIGUOUS (one's ended equals or is within one month of the other's started) represent
+  the same engagement — treat as a CONTINUATION: keep the existing block_id, extend ended to the later
+  date, union all fields, do NOT create a new block.
+- For all other role_groups: match blocks by date range overlap within the same role_group.
+- For MATCHED blocks (either rule above):
   - Keep the existing block_id.
   - Union tools, languages, domains, processes_standards, verification_validation — add items from the
     new extraction that are not already present; no duplicates.
   - Union evidence_items — add only items that are NOT semantically equivalent to an existing item.
     Preserve all existing evidence_ids exactly. New evidence_items get evidence_id: "".
-- For NEW blocks within a matched role_group (new date range): add with block_id: "", evidence_id: "".
+- For NEW blocks within a matched role_group (genuinely new client or date range): add with block_id: "",
+  evidence_id: "".
 
 GAPS:
 - Keep ALL existing gaps as-is (do not alter gap_id, status, or content of existing entries).

@@ -8,26 +8,14 @@ human-readable summary the LLM can reason over.
 
 from __future__ import annotations
 
-import json
 from collections import OrderedDict, defaultdict
-from pathlib import Path
 from typing import Any, Dict, List
 
-from backend.config import APPLICATION_TRACKER_DIR
-
-
-def _verdicts_path(consultant_id: str) -> Path:
-    return APPLICATION_TRACKER_DIR / f"{consultant_id}_verdicts.json"
+from ..verdict_store import load_verdicts as _load_verdicts
 
 
 def load_verdicts(consultant_id: str) -> Dict[str, Any]:
-    path = _verdicts_path(consultant_id)
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
+    return _load_verdicts(consultant_id)
 
 
 def _group_by_cycle(verdicts: Dict[str, Any]) -> "OrderedDict[str, List[dict]]":

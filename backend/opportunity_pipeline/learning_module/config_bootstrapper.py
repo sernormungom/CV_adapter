@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -21,8 +20,8 @@ from typing import Any, Dict, List, Tuple
 import anthropic
 import yaml
 
-from backend.config import DATA_DIR
 from ..pre_filter_matcher.config_reader import save_config
+from backend.profile_reader import load_profile, profile_to_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +64,6 @@ def _strip_fences(raw: str) -> str:
             inner = inner[:-1]
         raw = "\n".join(inner)
     return raw
-
-
-def _extract_yaml_block(profile_md: str) -> str:
-    m = re.search(r"```yaml\s*(.*?)```", profile_md, re.S)
-    return m.group(1) if m else profile_md
 
 
 def validate_config(cfg: Dict[str, Any]) -> List[str]:
@@ -142,11 +136,11 @@ def bootstrap_config(consultant_id: str) -> Dict[str, Any]:
     Generate, validate and persist the first matching_config.yaml for the consultant.
     Returns the config dict. Raises ValueError on profile/validation failure.
     """
-    profile_path = DATA_DIR / consultant_id / "profile.md"
-    if not profile_path.exists():
-        raise ValueError(f"profile.md not found for consultant {consultant_id}")
+    try:
+        profile_yaml = profile_to_yaml(load_profile(consultant_id))
+    except FileNotFoundError as e:
+        raise ValueError(str(e)) from e
 
-    profile_yaml = _extract_yaml_block(profile_path.read_text(encoding="utf-8"))
     cfg = asyncio.run(_generate_config(consultant_id, profile_yaml))
 
     # Normalise mandatory metadata regardless of what the model produced.

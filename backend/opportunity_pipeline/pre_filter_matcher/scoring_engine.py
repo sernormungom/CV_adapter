@@ -47,7 +47,7 @@ def build_evidence_index(profile_yaml: Dict[str, Any]) -> Dict[str, List[str]]:
     """
     index: Dict[str, set] = {
         "languages": set(), "tools": set(), "methods": set(),
-        "standards": set(), "verification": set(), "domains": set(), "keywords": set(),
+        "standards": set(), "verification": set(), "domains": set(), "evidence_text": set(),
     }
 
     for rg in (profile_yaml.get("career_history") or {}).get("role_groups") or []:
@@ -63,8 +63,9 @@ def build_evidence_index(profile_yaml: Dict[str, Any]) -> Dict[str, List[str]]:
             for domain in block.get("domains") or []:
                 index["domains"].add(_fold(domain))
             for ev in block.get("evidence_items") or []:
-                for kw in ev.get("keywords") or []:
-                    index["keywords"].add(_fold(kw))
+                text = ev.get("text")
+                if text:
+                    index["evidence_text"].add(_fold(text))
 
     return {k: list(v) for k, v in index.items()}
 
@@ -132,13 +133,13 @@ def match_terms_to_evidence(
     for category, terms in job_terms.items():
         tier_map = term_catalogs.get(category) or {}
         evidence = evidence_index.get(category) or []
-        evidence_keywords = evidence_index.get("keywords") or []
+        evidence_text = evidence_index.get("evidence_text") or []
 
         for term in terms:
             weight = _term_weight(term, tier_map if isinstance(tier_map, dict) else {})
             total_weight += weight
             folded_term = _fold(term)
-            if any(folded_term in ev or ev in folded_term for ev in evidence + evidence_keywords):
+            if any(folded_term in ev or ev in folded_term for ev in evidence + evidence_text):
                 matched_weight += weight
 
     if total_weight == 0:

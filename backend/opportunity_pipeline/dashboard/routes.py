@@ -30,7 +30,6 @@ POST /api/dashboard/{consultant_id}/run-cycle
 
 from __future__ import annotations
 
-import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,9 +39,11 @@ import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.config import APPLICATION_TRACKER_DIR, DATA_DIR, JOB_STORE_DIR, TA_CONFIG_DIR
+from backend.config import DATA_DIR, JOB_STORE_DIR, TA_CONFIG_DIR
+from ..verdict_store import VerdictStoreError, load_verdicts, save_verdicts
 from ..source_collector.board_connector import collect_from_sources
 from ..source_collector.position_writer import (
+    job_identity_key,
     list_active_positions,
     load_position,
     mark_expired_positions,
@@ -60,28 +61,40 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _verdicts_path(consultant_id: str) -> Path:
-    return APPLICATION_TRACKER_DIR / f"{consultant_id}_verdicts.json"
-
-
 def _pending_config_path(consultant_id: str) -> Path:
     return DATA_DIR / consultant_id / "matching_config.pending.yaml"
 
 
 def _load_verdicts(consultant_id: str) -> Dict[str, Any]:
-    path = _verdicts_path(consultant_id)
-    if not path.exists():
-        return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+        return load_verdicts(consultant_id)
+    except VerdictStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 def _save_verdicts(consultant_id: str, data: Dict[str, Any]) -> None:
-    path = _verdicts_path(consultant_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        save_verdicts(consultant_id, data)
+    except VerdictStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _verdict_for_job(job: Dict[str, Any], verdicts: Dict[str, Any]) -> Dict[str, Any]:
+    direct = verdicts.get(job.get("job_id") or "")
+    if isinstance(direct, dict):
+        return direct
+    identity_key = job_identity_key(job)
+    if not identity_key:
+        return {}
+    for verdict_job_id, entry in verdicts.items():
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("identity_key") == identity_key:
+            return entry
+        reviewed_job = load_position(str(verdict_job_id), JOB_STORE_DIR)
+        if reviewed_job and job_identity_key(reviewed_job) == identity_key:
+            return entry
+    return {}
 
 
 def _load_sources() -> list:
@@ -111,12 +124,14 @@ def get_positions(consultant_id: str) -> dict:
     positions = []
     for job in batch:
         jid = job["job_id"]
-        verdict_entry = verdicts.get(jid) or {}
+        verdict_entry = _verdict_for_job(job, verdicts)
         positions.append({
             "job_id": jid,
             "title_guess": job.get("title_guess") or "",
             "source_id": job.get("source_id") or "",
             "source_url": job.get("source_url") or "",
+            "source_native_id": job.get("source_native_id") or "",
+            "identity_key": job_identity_key(job),
             "company_hint": job.get("company_hint") or "",
             "collected_at": job.get("collected_at") or "",
             "raw_text": job.get("raw_text") or "",
@@ -159,6 +174,8 @@ def submit_verdict(consultant_id: str, body: VerdictRequest) -> dict:
         "title_guess": job.get("title_guess") or "",
         "source_id": job.get("source_id") or "",
         "source_url": job.get("source_url") or "",
+        "source_native_id": job.get("source_native_id") or "",
+        "identity_key": job_identity_key(job),
         "match_score": job.get("match_score"),
         "score_breakdown": job.get("score_breakdown"),
         "recommended_status": job.get("recommended_status"),
@@ -181,7 +198,7 @@ def complete_cycle(consultant_id: str) -> dict:
     batch = [j for j in list_active_positions(JOB_STORE_DIR) if j.get("batch_selected")]
     verdicts = _load_verdicts(consultant_id)
 
-    missing = [j["job_id"] for j in batch if j["job_id"] not in verdicts]
+    missing = [j["job_id"] for j in batch if not _verdict_for_job(j, verdicts)]
     if missing:
         raise HTTPException(
             status_code=400,
@@ -253,8 +270,7 @@ def get_status(consultant_id: str) -> dict:
     batch = [j for j in active_jobs if j.get("batch_selected")]
     verdicts = _load_verdicts(consultant_id)
 
-    batch_ids = {j["job_id"] for j in batch}
-    verdicts_given = sum(1 for jid in batch_ids if jid in verdicts)
+    verdicts_given = sum(1 for j in batch if _verdict_for_job(j, verdicts))
 
     return {
         "total_active_jobs": len(active_jobs),

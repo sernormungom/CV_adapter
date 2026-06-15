@@ -8,6 +8,8 @@ Job Store schema (one file per job at JOB_STORE_DIR/{job_id}.json):
   source_id       str
   source_type     str
   source_url      str
+  source_native_id str
+  identity_key    str      — canonical identity for dedupe/review exclusion
   title_guess     str
   company_hint    str
   raw_text        str
@@ -26,6 +28,8 @@ import re
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from .board_connector import build_identity_key, extract_source_native_id
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +180,23 @@ def list_active_positions(job_store_dir: Path) -> List[Dict[str, Any]]:
     return [j for j in list_all_positions(job_store_dir) if j.get("status") == "active"]
 
 
+def job_identity_key(job: Dict[str, Any]) -> str:
+    existing = job.get("identity_key") or ""
+    if existing:
+        return existing
+    source_native_id = job.get("source_native_id") or extract_source_native_id(
+        job.get("raw_text") or "",
+        job.get("source_url") or "",
+    )
+    return build_identity_key(
+        job.get("raw_text") or "",
+        job.get("source_url") or "",
+        source_native_id,
+        job.get("source_type") or "",
+        job.get("source_id") or "",
+    )
+
+
 def write_positions(
     raw_items: List[Dict[str, Any]],
     job_store_dir: Path,
@@ -189,9 +210,15 @@ def write_positions(
     job_store_dir.mkdir(parents=True, exist_ok=True)
     new_count = duplicate_count = error_count = 0
     manifest_items = []
+    existing_by_identity = {}
+    for existing_job in list_all_positions(job_store_dir):
+        key = job_identity_key(existing_job)
+        if key:
+            existing_by_identity.setdefault(key, existing_job.get("job_id"))
 
     for item in raw_items:
         job_id = item.get("job_id") or ""
+        identity_key = item.get("identity_key") or ""
         error = item.get("error") or ""
 
         if error or not job_id:
@@ -215,6 +242,18 @@ def write_positions(
             })
             continue
 
+        duplicate_job_id = existing_by_identity.get(identity_key)
+        if duplicate_job_id and duplicate_job_id != job_id:
+            duplicate_count += 1
+            manifest_items.append({
+                "job_id": job_id,
+                "existing_job_id": duplicate_job_id,
+                "status": "duplicate",
+                "source_id": item.get("source_id", ""),
+                "title_guess": item.get("title_guess", ""),
+            })
+            continue
+
         raw_text = item.get("raw_text") or ""
         job = {
             "job_id": job_id,
@@ -222,6 +261,8 @@ def write_positions(
             "source_id": item.get("source_id", ""),
             "source_type": item.get("source_type", ""),
             "source_url": item.get("source_url") or "",
+            "source_native_id": item.get("source_native_id") or "",
+            "identity_key": identity_key,
             "title_guess": item.get("title_guess") or "",
             "company_hint": item.get("company_hint") or "",
             "raw_text": raw_text,
@@ -233,6 +274,8 @@ def write_positions(
             "batch_selected_at": None,
         }
         save_position(job, job_store_dir)
+        if identity_key:
+            existing_by_identity[identity_key] = job_id
         new_count += 1
         manifest_items.append({
             "job_id": job_id,

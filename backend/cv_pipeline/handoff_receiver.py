@@ -1,10 +1,7 @@
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from backend.config import DATA_DIR
 from backend.cv_pipeline.context_assembler import assemble_context
 from backend.cv_pipeline.cv_content_generator import generate_cv_content
 
@@ -18,17 +15,16 @@ class GenerateCVRequest(BaseModel):
 
 @router.post("/generate-cv")
 async def generate_cv(req: GenerateCVRequest) -> JSONResponse:
-    profile_path: Path = DATA_DIR / req.consultant_id / "profile.md"
-    if not profile_path.exists():
+    if not req.job_description.strip():
+        raise HTTPException(status_code=422, detail="job_description must not be empty.")
+
+    try:
+        context = assemble_context(req.consultant_id, req.job_description)
+    except FileNotFoundError:
         raise HTTPException(
             status_code=404,
             detail=f"No profile found for consultant '{req.consultant_id}'. Import a CV first.",
         )
-
-    if not req.job_description.strip():
-        raise HTTPException(status_code=422, detail="job_description must not be empty.")
-
-    context = assemble_context(req.consultant_id, req.job_description)
     cv_content, errors = await generate_cv_content(context)
 
     if cv_content is None:

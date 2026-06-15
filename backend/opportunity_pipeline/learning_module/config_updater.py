@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -28,6 +27,7 @@ import anthropic
 import yaml
 
 from backend.config import DATA_DIR
+from backend.profile_reader import load_profile, profile_to_yaml
 from ..pre_filter_matcher.config_reader import load_config
 from .config_bootstrapper import bootstrap_config, validate_config
 from .config_update_prompt import build_system_prompt, build_user_message
@@ -56,16 +56,6 @@ def _strip_fences(raw: str) -> str:
             inner = inner[:-1]
         raw = "\n".join(inner)
     return raw
-
-
-def _build_profile_summary(consultant_id: str) -> str:
-    """Pull the YAML block from profile.md as the profile summary for the prompt."""
-    profile_path = DATA_DIR / consultant_id / "profile.md"
-    if not profile_path.exists():
-        return "(profile not found)"
-    md = profile_path.read_text(encoding="utf-8")
-    m = re.search(r"```yaml\s*(.*?)```", md, re.S)
-    return m.group(1).strip() if m else md.strip()
 
 
 def compute_diff(current: Dict[str, Any], proposed: Dict[str, Any]) -> Dict[str, Any]:
@@ -122,7 +112,10 @@ def propose_config_update(consultant_id: str, cycle_id: Optional[str] = None) ->
         logger.info("No matching_config for %s — bootstrapping before update", consultant_id)
         current = bootstrap_config(consultant_id)
 
-    profile_summary = _build_profile_summary(consultant_id)
+    try:
+        profile_summary = profile_to_yaml(load_profile(consultant_id))
+    except FileNotFoundError:
+        profile_summary = "(profile not found)"
 
     llm_result = asyncio.run(_call_llm(profile_summary, current, history_text))
     proposed = llm_result.get("proposed_config")

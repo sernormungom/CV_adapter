@@ -5,7 +5,13 @@ from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from backend.config import APPLICATION_TRACKER_DIR, JOB_STORE_DIR
+from backend.config import JOB_STORE_DIR
+from backend.opportunity_pipeline.verdict_store import (
+    VerdictStoreError,
+    load_verdicts,
+    save_verdicts,
+    verdicts_path,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,9 +34,11 @@ from backend.opportunity_pipeline.source_collector.routes import router as sourc
 from backend.opportunity_pipeline.pre_filter_matcher.routes import router as matcher_router
 from backend.opportunity_pipeline.dashboard.routes import router as dashboard_router
 from backend.opportunity_pipeline.learning_module.routes import router as learning_router
+from backend.cv_assistant.routes import router as chat_router
 
 app.include_router(importer_router, prefix="/api")
 app.include_router(pipeline_router, prefix="/api")
+app.include_router(chat_router)
 app.include_router(source_router, prefix="/api/opportunities")
 app.include_router(matcher_router, prefix="/api/opportunities")
 app.include_router(dashboard_router, prefix="/api/dashboard")
@@ -117,10 +125,12 @@ _APPLIED_RETENTION_DAYS = 7
 @app.get("/api/profiles/{username}/accepted-positions")
 def get_accepted_positions(username: str) -> list:
     uname = _normalize_username(username)
-    verdicts_path = APPLICATION_TRACKER_DIR / f"{uname}_verdicts.json"
-    if not verdicts_path.exists():
+    if not verdicts_path(uname).exists():
         return []
-    verdicts = json.loads(verdicts_path.read_text(encoding="utf-8"))
+    try:
+        verdicts = load_verdicts(uname)
+    except VerdictStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     cutoff = datetime.now(timezone.utc) - timedelta(days=_APPLIED_RETENTION_DAYS)
     result = []
     for job_id, v in verdicts.items():
@@ -158,20 +168,25 @@ def get_accepted_positions(username: str) -> list:
 @app.post("/api/profiles/{username}/accepted-positions/{job_id}/status")
 async def update_position_status(username: str, job_id: str, request: Request) -> Dict[str, Any]:
     uname = _normalize_username(username)
-    verdicts_path = APPLICATION_TRACKER_DIR / f"{uname}_verdicts.json"
-    if not verdicts_path.exists():
+    if not verdicts_path(uname).exists():
         raise HTTPException(status_code=404, detail="No verdicts file found")
     body = await request.json()
     new_status = body.get("status", "")
     if new_status not in _STATUS_VALUES:
         raise HTTPException(status_code=400, detail=f"Invalid status: {new_status}")
-    verdicts = json.loads(verdicts_path.read_text(encoding="utf-8"))
+    try:
+        verdicts = load_verdicts(uname)
+    except VerdictStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     if job_id not in verdicts:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not in verdicts")
     verdicts[job_id]["application_status"] = new_status
     if new_status == "applied":
         verdicts[job_id]["applied_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    verdicts_path.write_text(json.dumps(verdicts, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        save_verdicts(uname, verdicts)
+    except VerdictStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"ok": True, "job_id": job_id, "status": new_status}
 
 

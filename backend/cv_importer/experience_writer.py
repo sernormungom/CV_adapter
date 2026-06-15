@@ -1,6 +1,5 @@
 import shutil
 import unicodedata
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -8,33 +7,20 @@ import yaml
 
 from backend.config import DATA_DIR
 from backend.cv_importer.profile_merger import merge_profiles
+from backend.cv_assistant.profile_utils import assign_new_ids
 
 
-# ── ID generation ──────────────────────────────────────────────────────────────
+# ── Strip fields removed in schema v1.2 ───────────────────────────────────────
 
-def _new_id() -> str:
-    return uuid.uuid4().hex[:8]
-
-
-def _assign_ids(data: dict) -> dict:
-    for edu in data.get("education", []):
-        if not edu.get("education_id"):
-            edu["education_id"] = f"e_{_new_id()}"
-
-    for rg in data.get("career_history", {}).get("role_groups", []):
-        if not rg.get("role_group_id"):
-            rg["role_group_id"] = f"rg_{_new_id()}"
-        for block in rg.get("blocks", []):
-            if not block.get("block_id"):
-                block["block_id"] = f"b_{_new_id()}"
-            for ev in block.get("evidence_items", []):
-                if not ev.get("evidence_id"):
-                    ev["evidence_id"] = f"ev_{_new_id()}"
-
-    for gap in data.get("gaps", []):
-        if not gap.get("gap_id"):
-            gap["gap_id"] = f"g_{_new_id()}"
-
+def _strip_removed_fields(data: dict) -> dict:
+    """Remove provenance, keywords, and tools_referenced — defensive against LLM hallucination."""
+    for rg in (data.get("career_history") or {}).get("role_groups") or []:
+        rg.pop("provenance", None)
+        for block in rg.get("blocks") or []:
+            block.pop("provenance", None)
+            for ev in block.get("evidence_items") or []:
+                ev.pop("keywords", None)
+                ev.pop("tools_referenced", None)
     return data
 
 
@@ -290,7 +276,8 @@ async def write_profile(
             data = merged_data
         # On merge failure fall through with the new extraction as-is
 
-    data = _assign_ids(data)
+    data = _strip_removed_fields(data)
+    data = assign_new_ids(data)
 
     # Build source_archives list: carry forward existing entries, append new one
     existing_archives: list[str] = []
@@ -318,7 +305,7 @@ async def write_profile(
 
     full_profile = {
         "metadata": {
-            "schema_version": "1.1",
+            "schema_version": "1.3",
             "consultant_id": consultant_id,
             "created_at": created_at,
             "updated_at": now,

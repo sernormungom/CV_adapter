@@ -20,7 +20,7 @@ html,body{height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-sizing:border-box!important}
   html,body{background:#fff!important;height:auto!important;overflow:visible!important;margin:0!important;padding:0!important;width:100%!important}
   .app{display:block!important;width:100%!important}
-  header,.sidebar{display:none!important}
+  header,.sidebar,.chat-panel{display:none!important}
   .preview-pane{display:block!important;padding:0!important;margin:0!important;background:#fff!important;overflow:visible!important;width:100%!important}
 
   /* Grey sidebar:
@@ -32,7 +32,7 @@ html,body{height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink
     min-height:297mm!important;
     background:#ffffff!important;
     box-shadow:none!important;
-    overflow:hidden!important;
+    overflow:visible!important;
     align-content:start!important;
   }
   /* Re-enable the ::before solid grey strip — clean straight edge */
@@ -61,6 +61,9 @@ html,body{height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink
   .cvs-exp-row{
     break-inside:avoid!important;
     page-break-inside:avoid!important;
+  }
+  .cvs-sec-hd-r,.cvs-exp-row-r{
+    overflow:visible!important;
   }
   .cvs-sec-hd-row{
     break-after:avoid!important;
@@ -300,6 +303,41 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
 
 .cv-ph{color:#ccc;font-style:italic}
 
+/* ── CHAT PANEL ── */
+.chat-panel{
+  position:fixed;top:52px;right:0;bottom:0;width:340px;
+  background:#f8f7f5;border-left:1px solid #ddd;
+  display:flex;flex-direction:column;overflow:hidden;
+  transform:translateX(100%);transition:transform .2s ease;
+  box-shadow:-4px 0 24px rgba(0,0,0,.13);
+  z-index:500;
+}
+.app.chat-open .chat-panel{transform:translateX(0)}
+.chat-hd{padding:11px 14px;background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.chat-hd-title{font-size:12px;font-weight:600;color:#fff;letter-spacing:.04em}
+.chat-hd-close{background:none;border:none;color:#666;font-size:18px;cursor:pointer;line-height:1;padding:0 2px;transition:color .15s}
+.chat-hd-close:hover{color:#fff}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.chat-msg{max-width:90%;font-size:12px;line-height:1.55;border-radius:3px;padding:8px 10px;word-break:break-word}
+.chat-msg-user{background:var(--acc);color:#fff;align-self:flex-end;border-bottom-right-radius:0}
+.chat-msg-assistant{background:#fff;color:#222;border:1px solid #e0ddd8;align-self:flex-start;border-bottom-left-radius:0}
+.chat-msg-thinking{background:#fff;color:#aaa;border:1px solid #e0ddd8;align-self:flex-start;font-style:italic;border-bottom-left-radius:0}
+.chat-profile-card{background:#f4f0f9;border:1px solid #d8c8e8;border-radius:3px;padding:9px 11px;font-size:11px;color:#3a1050;align-self:flex-start;max-width:92%;word-break:break-word}
+.chat-profile-card-lbl{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#972182;margin-bottom:5px}
+.chat-profile-card-btns{display:flex;gap:6px;margin-top:8px}
+.chat-btn-apply{background:var(--acc);border:none;color:#fff;font-size:10px;font-weight:600;padding:4px 10px;border-radius:2px;cursor:pointer;transition:background .15s}
+.chat-btn-apply:hover{background:#6e1860}
+.chat-btn-apply:disabled{background:#ccc;cursor:default}
+.chat-btn-dismiss{background:none;border:1px solid #ccc;color:#666;font-size:10px;padding:4px 10px;border-radius:2px;cursor:pointer;transition:all .15s}
+.chat-btn-dismiss:hover{border-color:#888;color:#333}
+.chat-ft{padding:10px 12px;background:#eceae6;border-top:1px solid #e0ddd8;display:flex;gap:6px;align-items:flex-end;flex-shrink:0}
+.chat-input{flex:1;background:#fff;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:12px;padding:6px 8px;border-radius:2px;outline:none;resize:none;line-height:1.5;min-height:36px;max-height:100px;overflow-y:auto;transition:border-color .15s}
+.chat-input:focus{border-color:var(--acc)}
+.chat-send{background:var(--acc);border:none;color:#fff;width:34px;height:34px;border-radius:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+.chat-send:hover{background:#6e1860}
+.chat-send:disabled{background:#ccc;cursor:default}
+.chat-empty{color:#bbb;font-size:11px;font-style:italic;text-align:center;margin-top:40px;padding:0 20px;line-height:1.6}
+
 /* ── PRINT: per-page injected footer (pages 2…n) ── */
 /* Elements are added via JS in beforeprint; removed in afterprint.  */
 /* Using mm for height/top so units are identical in screen + print.  */
@@ -389,6 +427,7 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
     <button class="hbtn hbtn-ghost" onclick="openGenerateModal()">✦ Generate CV</button>
     <button class="hbtn hbtn-ghost" onclick="saveCurrentState().then(()=>_activeJobId&&_updatePositionStatus(_activeJobId,'applied')).finally(()=>window.print())">↓ Print / PDF</button>
     <button class="hbtn hbtn-ghost" onclick="goToOpportunities()">⚡ Find Opportunities</button>
+    <button class="hbtn hbtn-ghost" id="chatToggleBtn" onclick="toggleChat()">✦ CV Assistant</button>
     <button class="hbtn hbtn-acc" onclick="downloadCV()">Download HTML</button>
   </div>
 </header>
@@ -681,6 +720,25 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
   <div class="cvs" id="cvSheet"></div>
 </div>
 
+<!-- CHAT PANEL -->
+<section class="chat-panel" id="chatPanel">
+  <div class="chat-hd">
+    <span class="chat-hd-title">CV Assistant</span>
+    <button class="chat-hd-close" onclick="toggleChat()" title="Close">×</button>
+  </div>
+  <div class="chat-msgs" id="chatMsgs">
+    <div class="chat-empty" id="chatEmpty">Ask me to tune the CV, explain a choice, or update your profile.<br><br>Examples:<br>"Be more concise in the experience bullets."<br>"Why did you choose this summary?"<br>"I also did RIG testing at Volvo."</div>
+  </div>
+  <div class="chat-ft">
+    <textarea class="chat-input" id="chatInput" placeholder="Ask something or give instructions…" rows="1"
+      onkeydown="chatHandleKey(event)"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+    <button class="chat-send" id="chatSendBtn" onclick="chatSend()" title="Send (Enter)">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11z"/></svg>
+    </button>
+  </div>
+</section>
+
 </div>
 <script>
 /* ── accent colour (fixed brand purple) ── */
@@ -908,25 +966,27 @@ function render(){
   /* exp rows — full width, left info aligned with first assignment */
   const expRows=expList.length
     ?expList.map(e=>{
-      const assignmentsHTML=(e.assignments||[]).map(a=>{
+      const assignments=(e.assignments||[]);
+      return assignments.map((a, ai)=>{
         const bodyHTML=a.descHtml
           ?`<div style="${ts('ex')};line-height:1.55" class="cvs-exp-desc">${a.descHtml}</div>`
           :'';
-        return`<div class="cvs-exp-entry">
+        const assignmentHTML=`<div class="cvs-exp-entry">
           <div class="cvs-exp-role" style="font-family:${(v('exFont')||"'Source Sans 3',sans-serif").split('|')[0]};font-size:${parseInt(v('exSize'))||10}px">${esc(a.role)||'<span class="cv-ph">Role</span>'}</div>
           ${a.period?`<div class="cvs-exp-period">${esc(a.period)}</div>`:''}
           ${bodyHTML}
           ${a.tools?`<div class="cvs-exp-tools"><strong>Tools &amp; Skills:</strong> <span style="${ts('ex')}">${esc(a.tools)}</span></div>`:''}
         </div>`;
-      }).join('');
-      return`<div class="cvs-exp-row">
+        return`<div class="cvs-exp-row">
         <div class="cvs-exp-row-l">
+          ${ai===0?`
           <div class="cvs-lco">${esc(e.company)||'—'}</div>
           ${e.location?`<div class="cvs-lci">${esc(e.location)}</div>`:''}
-          <div class="cvs-lcd" style="margin-bottom:0">${esc(e.from)}${e.from&&e.to?' – ':''}${esc(e.to)}</div>
+          <div class="cvs-lcd" style="margin-bottom:0">${esc(e.from)}${e.from&&e.to?' – ':''}${esc(e.to)}</div>`:''}
         </div>
-        <div class="cvs-exp-row-r">${assignmentsHTML}</div>
+        <div class="cvs-exp-row-r">${assignmentHTML}</div>
       </div>`;
+      }).join('');
     }).join('')
     :`<div class="cvs-exp-row"><div class="cvs-exp-row-l"></div><div class="cvs-exp-row-r cv-ph" style="font-size:10px">Add your work experience in the editor →</div></div>`;
 
@@ -1380,10 +1440,21 @@ loadApiKeyStatus();
    We measure the rendered height in px, ceil to next page multiple,
    then express that as mm so the print engine interprets it correctly. */
 (function(){
+  function clearFinalPageSpacer(){
+    const cvs = document.querySelector('.cvs');
+    if(!cvs) return;
+    cvs.querySelectorAll('.cvs-final-page-spacer-target').forEach(function(el){
+      el.classList.remove('cvs-final-page-spacer-target');
+      el.querySelectorAll('.cvs-exp-row-l,.cvs-exp-row-r').forEach(function(cell){
+        cell.style.removeProperty('padding-top');
+      });
+    });
+  }
 
   function stretchToPages(){
     const cvs = document.querySelector('.cvs');
     if(!cvs) return;
+    clearFinalPageSpacer();
 
     // 1. Clear all previously injected break-before overrides
     cvs.querySelectorAll('.cvs-sec-hd-row').forEach(function(el){
@@ -1402,12 +1473,12 @@ loadApiKeyStatus();
     // 3. Page height from container width × A4 aspect ratio
     const pageH = cvs.offsetWidth * (297 / 210);
 
-    // 4. For every section heading and experience row, check whether
-    //    its top lands within the bottom 12% of a page (danger zone).
+    // 4. For section headings, check whether the heading lands within
+    //    the bottom 12% of a page (danger zone).
     //    If so, push it to the next page with break-before:page.
     const cvsTop = cvs.getBoundingClientRect().top + window.scrollY;
     const danger = pageH * 0.12; // bottom 12% of a page = ~36mm
-    const breakTargets = cvs.querySelectorAll('.cvs-sec-hd-row, .cvs-exp-row');
+    const breakTargets = cvs.querySelectorAll('.cvs-sec-hd-row');
     breakTargets.forEach(function(el){
       const elTop = el.getBoundingClientRect().top + window.scrollY - cvsTop;
       const posInPage = elTop % pageH;
@@ -1421,6 +1492,69 @@ loadApiKeyStatus();
     void cvs.offsetHeight;
     const pages = Math.max(1, Math.ceil(cvs.scrollHeight / pageH));
     cvs.style.setProperty('min-height', (pages * 297) + 'mm', 'important');
+  }
+
+  function balanceFinalPage(){
+    const cvs = document.querySelector('.cvs');
+    if(!cvs) return;
+
+    clearFinalPageSpacer();
+    void cvs.offsetHeight;
+
+    // Use the designed sheet ratio for pagination decisions. The print
+    // engine may scale the sheet, but row breaks follow this authored layout.
+    const pageH = 720 * (297 / 210);
+    const pxPerMm = pageH / 297;
+    const footerPx = 16 * pxPerMm;
+    const maxSpacer = 24 * pxPerMm;
+    const minUsefulSpacer = 8 * pxPerMm;
+
+    const contentEls = Array.from(cvs.children).filter(function(el){
+      if(el.classList.contains('cvs-ft') || el.classList.contains('cvs-ft-injected')) return false;
+      if(el.tagName && el.tagName.toLowerCase() === 'style') return false;
+      return getComputedStyle(el).display !== 'none';
+    });
+    if(!contentEls.length) return;
+
+    const contentEnd = Math.max.apply(null, contentEls.map(function(el){
+      return el.offsetTop + el.offsetHeight;
+    }));
+    const pages = Math.max(1, Math.ceil(contentEnd / pageH));
+    if(pages < 2) return;
+
+    const lastPageStart = (pages - 1) * pageH;
+    const usedOnLastPage = contentEnd - lastPageStart;
+    const spareAboveFooter = pageH - usedOnLastPage - footerPx;
+    const spacer = Math.min(maxSpacer, Math.floor(spareAboveFooter / 2));
+    if(spacer < minUsefulSpacer) return;
+
+    let target = contentEls.find(function(el){
+      return el.classList.contains('cvs-exp-row') &&
+        el.offsetTop < lastPageStart &&
+        (el.offsetTop + el.offsetHeight) > lastPageStart;
+    });
+    if(!target){
+      target = contentEls.find(function(el){
+        return el.classList.contains('cvs-exp-row') && el.offsetTop >= lastPageStart;
+      });
+    }
+    if(!target) return;
+
+    target.classList.add('cvs-final-page-spacer-target');
+    target.querySelectorAll('.cvs-exp-row-l,.cvs-exp-row-r').forEach(function(cell){
+      const current = parseFloat(getComputedStyle(cell).paddingTop) || 0;
+      cell.style.setProperty('padding-top', (current + spacer) + 'px', 'important');
+    });
+    void cvs.offsetHeight;
+
+    const newContentEnd = Math.max.apply(null, contentEls.map(function(el){
+      return el.offsetTop + el.offsetHeight;
+    }));
+    if(Math.ceil(newContentEnd / pageH) > pages){
+      clearFinalPageSpacer();
+    } else {
+      cvs.style.setProperty('min-height', (pages * 297) + 'mm', 'important');
+    }
   }
 
   /* Build a footer element for page p using DOM methods.
@@ -1462,6 +1596,7 @@ loadApiKeyStatus();
 
   window.addEventListener('beforeprint', function(){
     stretchToPages();
+    balanceFinalPage();
 
     /* Inject footers for pages 2 … n */
     const cvs = document.querySelector('.cvs');
@@ -1484,6 +1619,7 @@ loadApiKeyStatus();
     const cvs = document.querySelector('.cvs');
     if(!cvs) return;
     cvs.style.removeProperty('min-height');
+    clearFinalPageSpacer();
     cvs.querySelectorAll('.cvs-ft-injected').forEach(function(el){el.remove();});
   });
 })();
@@ -1877,6 +2013,216 @@ setInterval(function(){
 
 /* Initialise profile modal on load */
 document.addEventListener('DOMContentLoaded', function(){ pmLoadProfiles(); });
+
+/* ══════════════════════════════
+   CV ASSISTANT CHAT
+══════════════════════════════ */
+var _chatHistory = [];
+
+function toggleChat(){
+  var app = document.querySelector('.app');
+  var open = app.classList.toggle('chat-open');
+  var btn = document.getElementById('chatToggleBtn');
+  if(btn) btn.style.background = open ? '#6e1860' : '';
+  if(open){
+    setTimeout(function(){ document.getElementById('chatInput').focus(); }, 50);
+    // On first open (empty history), greet and surface open profile gaps.
+    if(!_chatHistory.length) _chatShowOpeningMessage();
+  }
+}
+
+async function _chatShowOpeningMessage(){
+  var username = (localStorage.getItem('mpya_username')||'').trim();
+  if(!username) return;
+  try{
+    var res = await fetch(_API_BASE+'/api/chat/gaps/'+encodeURIComponent(username));
+    if(!res.ok) return;
+    var data = await res.json();
+    var gaps = (data.gaps||[]).filter(function(g){ return g.suggested_question; });
+
+    var text;
+    if(!gaps.length){
+      text = 'Hello! Your profile looks complete. How can I help with your CV today?';
+    } else {
+      var lines = ['Hello! Before we dive in, I have '+(gaps.length===1?'a question':'a few questions')+' about your profile:\n'];
+      gaps.forEach(function(g, i){
+        lines.push((i+1)+'. '+g.suggested_question);
+      });
+      lines.push('\nFeel free to answer any of these, or just ask me to tune the CV.');
+      text = lines.join('\n');
+    }
+
+    _chatHideEmpty();
+    _chatAddBubble('assistant', text);
+    _chatHistory.push({role:'assistant', content:text});
+  }catch(e){ /* silent — gap loading is optional */ }
+}
+
+function chatHandleKey(e){
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); chatSend(); }
+}
+
+function _escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function _chatScrollBottom(){
+  var msgs = document.getElementById('chatMsgs');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function _chatHideEmpty(){
+  var el = document.getElementById('chatEmpty');
+  if(el) el.style.display = 'none';
+}
+
+function _chatAddBubble(role, text){
+  _chatHideEmpty();
+  var msgs = document.getElementById('chatMsgs');
+  var div = document.createElement('div');
+  div.className = role === 'user' ? 'chat-msg chat-msg-user' : 'chat-msg chat-msg-assistant';
+  div.innerHTML = _escHtml(text);
+  msgs.appendChild(div);
+  _chatScrollBottom();
+  return div;
+}
+
+function _chatAddThinking(){
+  _chatHideEmpty();
+  var msgs = document.getElementById('chatMsgs');
+  var div = document.createElement('div');
+  div.className = 'chat-msg chat-msg-thinking';
+  div.id = '_chatThinking';
+  div.innerHTML = '<span style="letter-spacing:.2em">···</span>';
+  msgs.appendChild(div);
+  _chatScrollBottom();
+  return div;
+}
+
+function _chatRemoveThinking(){
+  var el = document.getElementById('_chatThinking');
+  if(el) el.remove();
+}
+
+function _chatAddProfileCard(description, patch){
+  _chatHideEmpty();
+  var msgs = document.getElementById('chatMsgs');
+  var card = document.createElement('div');
+  card.className = 'chat-profile-card';
+  var patchJson = JSON.stringify(patch).replace(/'/g,"&#39;");
+  card.innerHTML =
+    '<div class="chat-profile-card-lbl">Profile update proposed</div>' +
+    '<div>' + _escHtml(description) + '</div>' +
+    '<div class="chat-profile-card-btns">' +
+      '<button class="chat-btn-apply" onclick="chatApplyProfile(this,\'' + patchJson.replace(/"/g,'&quot;') + '\')">Apply to profile</button>' +
+      '<button class="chat-btn-dismiss" onclick="this.closest(\'.chat-profile-card\').remove()">Dismiss</button>' +
+    '</div>';
+  msgs.appendChild(card);
+  _chatScrollBottom();
+}
+
+async function chatApplyProfile(btn, patchJson){
+  var username = (localStorage.getItem('mpya_username')||'').trim();
+  if(!username) return;
+  btn.disabled = true; btn.textContent = 'Applying…';
+  try{
+    var res = await fetch(_API_BASE+'/api/chat/profile-patch', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ username: username, patch: JSON.parse(patchJson) })
+    });
+    var card = btn.closest('.chat-profile-card');
+    if(res.ok){
+      card.innerHTML = '<span style="color:#666;font-style:italic">Profile updated.</span>';
+    } else {
+      var errText = 'Could not apply profile update (server error ' + res.status + ').';
+      try{ var j = await res.json(); if(j.detail) errText = j.detail; }catch(x){}
+      btn.disabled = false; btn.textContent = 'Apply to profile';
+      _chatAddBubble('assistant', errText);
+    }
+  }catch(e){
+    btn.disabled = false; btn.textContent = 'Apply to profile';
+    _chatAddBubble('assistant', 'Could not reach the server to apply the profile update. Is the server running?');
+  }
+}
+
+function _chatApplyCVPatch(patch){
+  if(!patch || typeof patch !== 'object') return;
+  var changed = false;
+  Object.keys(patch).forEach(function(id){
+    var el = document.getElementById(id);
+    if(el){ el.value = patch[id]; changed = true; }
+  });
+  if(changed) render();
+}
+
+async function chatSend(){
+  var input = document.getElementById('chatInput');
+  var sendBtn = document.getElementById('chatSendBtn');
+  var msg = input.value.trim();
+  if(!msg || sendBtn.disabled) return;
+
+  var username = (localStorage.getItem('mpya_username')||'').trim();
+  if(!username){ _chatAddBubble('assistant','Please select a profile first.'); return; }
+
+  input.value = ''; input.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  _chatAddBubble('user', msg);
+  _chatHistory.push({ role:'user', content:msg });
+
+  _chatAddThinking();
+
+  /* Collect context */
+  var formState = captureFormState();
+  var jobDescEl = document.getElementById('genJobDesc');
+  var jobDesc = jobDescEl ? jobDescEl.value.trim() : '';
+
+  try{
+    var res = await fetch(_API_BASE+'/api/chat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        username: username,
+        message: msg,
+        history: _chatHistory.slice(0, -1),
+        cv_state: formState,
+        job_description: jobDesc
+      })
+    });
+
+    _chatRemoveThinking();
+
+    if(!res.ok){
+      _chatAddBubble('assistant','Server error ('+res.status+'). Please try again.');
+      sendBtn.disabled = false; return;
+    }
+
+    var data = await res.json();
+
+    if(data.answer){
+      _chatAddBubble('assistant', data.answer);
+      _chatHistory.push({ role:'assistant', content: data.answer });
+    }
+    if(data.cv_patch && Object.keys(data.cv_patch).length){
+      _chatApplyCVPatch(data.cv_patch);
+      if(!data.answer) _chatAddBubble('assistant', 'Done — I\'ve updated the CV fields.');
+    }
+    if(data.profile_updates && data.profile_updates.length){
+      data.profile_updates.forEach(function(upd){
+        _chatAddProfileCard(upd.description, upd.patch);
+      });
+    } else if(data.profile_update){
+      _chatAddProfileCard(data.profile_update.description, data.profile_update.patch);
+    }
+
+  }catch(e){
+    _chatRemoveThinking();
+    _chatAddBubble('assistant','Could not reach the server.');
+  }
+
+  sendBtn.disabled = false;
+  document.getElementById('chatInput').focus();
+}
 </script>
 </body>
 </html>

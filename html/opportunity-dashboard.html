@@ -175,6 +175,13 @@ const API = 'http://localhost:8000/api/dashboard';
 let consultantId = null;
 let positions = [];
 let verdicts = {};   // job_id -> {verdict, reason}
+let serverStatus = null;
+
+function isVerdictComplete(v) {
+  if (!v || !v.verdict) return false;
+  if (v.verdict === 'yes') return true;
+  return (v.verdict === 'no' || v.verdict === 'maybe') && !!v.reason?.trim();
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -224,6 +231,7 @@ async function loadPositions() {
 async function refreshStatus() {
   try {
     const s = await api('GET', '/status');
+    serverStatus = s;
     const chip = document.getElementById('statusChip');
     const done = s.cycle_complete;
     chip.textContent = done ? `${s.verdicts_given}/${s.batch_size} complete` : `${s.verdicts_given}/${s.batch_size} verdicts`;
@@ -242,6 +250,7 @@ async function refreshStatus() {
     if (s.pending_config_update) {
       loadProposal();
     }
+    updateSubmitBar();
   } catch (e) { /* ignore status errors */ }
 }
 
@@ -385,18 +394,37 @@ function updateSubmitBar() {
   let done = 0;
   for (const pos of positions) {
     const v = verdicts[pos.job_id];
-    if (!v) continue;
-    if (v.verdict === 'yes') done++;
-    else if ((v.verdict === 'no' || v.verdict === 'maybe') && v.reason.trim()) done++;
+    if (isVerdictComplete(v)) done++;
   }
-  document.getElementById('submitProgress').innerHTML =
-    `<strong>${done}</strong> of <strong>${total}</strong> verdicts complete`;
-  document.getElementById('submitBtn').disabled = (done < total || total === 0);
+  let progressHtml = `<strong>${done}</strong> of <strong>${total}</strong> verdicts complete`;
+  let canSubmit = done >= total && total > 0;
+
+  if (serverStatus && serverStatus.batch_size === total) {
+    const saved = serverStatus.verdicts_given;
+    if (done >= total && saved < total) {
+      const pending = total - saved;
+      progressHtml += ` · waiting for <strong>${pending}</strong> verdict save${pending === 1 ? '' : 's'} to reach the server`;
+      canSubmit = false;
+    }
+  }
+
+  document.getElementById('submitProgress').innerHTML = progressHtml;
+  document.getElementById('submitBtn').disabled = !canSubmit;
 }
 
 async function submitAllVerdicts() {
   document.getElementById('submitBtn').disabled = true;
   try {
+    await loadPositions();
+    await refreshStatus();
+
+    const savedDone = positions.filter(pos => isVerdictComplete(verdicts[pos.job_id])).length;
+    if (savedDone < positions.length) {
+      throw new Error(
+        `The dashboard was out of sync. After refreshing from the server, ${savedDone}/${positions.length} verdicts are saved for the current batch. Please review the refreshed cards and submit again.`
+      );
+    }
+
     const result = await api('POST', '/complete-cycle', {});
     toast('Cycle submitted!', 'ok');
     if (result.config_proposal) {

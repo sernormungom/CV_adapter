@@ -1,11 +1,13 @@
 # Consultant Profile Schema
 
-- **Schema version:** 1.1
+- **Schema version:** 1.3
 - **Status:** Draft
-- **Date:** 2026-05-27
+- **Date:** 2026-06-09
 - **Format:** YAML (the schema is format-agnostic; examples use YAML)
 - **Filename convention:** `profile.yaml` inside the consultant's folder
-- **Changes since 1.0:** added the compression principle (§0.1) and producer compression rules (§5.1); added the structured **gaps** mechanism and `needs_review` markers (§2.8, §3, §4); changed missing-required behavior from hard error to gap (flag-don't-guess); added the raw-CV archive backstop (§0.2).
+- **Changes since 1.2:** added `client` field to block (§2.5.1) for `consultant_via_employer` engagements — separates the end-client from the employer organisation so block `started`/`ended` unambiguously mean the client-assignment period, not the employer's tenure; added producer rule for consultant date handling (§5.2).
+- **Changes since 1.1:** removed `provenance` block from role_groups and blocks (audit metadata is not LLM signal); removed `keywords` and `tools_referenced` from evidence_items (redundant with block-level fields and evidence `text`); replaced `reviewed_by_consultant` flag with `verified: true` at block level (absent = unconfirmed); removed `provenance_source` vocabulary; renumbered §2.6 IDs, §2.7 gaps.
+- **Changes since 1.0:** added the compression principle (§0.1) and producer compression rules (§5.1); added the structured **gaps** mechanism and `needs_review` markers (§2.7, §3, §4); changed missing-required behavior from hard error to gap (flag-don't-guess); added the raw-CV archive backstop (§0.2).
 
 ---
 
@@ -142,15 +144,15 @@ A role group is a contiguous engagement with one organization — **or** a perso
 | `summary` | `string` | optional | One-paragraph *factual* summary (what it was, not how to pitch it). Used for old/foundational role groups compressed toward skeleton. |
 | `blocks` | `array<block>` | required | ≥1. |
 | `needs_review` | `boolean` | optional | True when this role group has open gaps. |
-| `provenance` | `object` | required | §2.6. One per role group and per block; evidence items inherit. |
 
 #### 2.5.1 `block`
 | Field | Type | Disposition | Notes |
 |---|---|---|---|
 | `block_id` | `string` | required | Writer-assigned. |
-| `role_title` | `string` | required | May differ from the role group's `display_role_title`. |
-| `started` | `date_ym` | required | Within parent range. If absent → omit + `needs_review` + gap. |
-| `ended` | `date_ym` | required | Within parent range. `"present"` allowed. |
+| `role_title` | `string` | required | May differ from the role group's `display_role_title`. For `consultant_via_employer` blocks, omit the client name from this string — put it in `client.name` instead. |
+| `client` | `object{name, department, country_code}` | optional | **Required for `consultant_via_employer` blocks.** The end-client organisation, distinct from the employer in the role_group. `name` is required within the object; `department` and `country_code` are optional. Block `started`/`ended` are the **client-assignment dates**, not the employer's tenure. |
+| `started` | `date_ym` | required | Within parent range. If absent → omit + `needs_review` + gap. For `consultant_via_employer` blocks: the client-assignment start date — if unknown, create an `ambiguous_dates` gap; do **not** default to the employer's start date. |
+| `ended` | `date_ym` | required | Within parent range. `"present"` allowed. For `consultant_via_employer` blocks: the client-assignment end date. |
 | `block_type` | `string<enum>` | required | `block_type` vocab. Describes what the work *was*. |
 | `seniority` | `string<enum>` | inferred | `seniority` vocab. |
 | `domains` | `array<string<enum>>` | inferred | `domain` vocab. |
@@ -162,7 +164,7 @@ A role group is a contiguous engagement with one organization — **or** a perso
 | `collaboration` | `object{team_size, reports_to, direct_reports, stakeholders[]}` | optional | Factual context for senior/lead roles. |
 | `evidence_items` | `array<evidence_item>` | required | ≥1. |
 | `needs_review` | `boolean` | optional | True when this block has open gaps. |
-| `provenance` | `object` | required | §2.6. |
+| `verified` | `boolean` | optional | Present and `true` only after the consultant has explicitly confirmed this block's content. Absent means imported or inferred but not yet reviewed. |
 
 #### 2.5.2 `evidence_item`
 | Field | Type | Disposition | Notes |
@@ -171,23 +173,11 @@ A role group is a contiguous engagement with one organization — **or** a perso
 | `type` | `string<enum>` | required | `evidence_type` vocab. A fact about the claim's nature. |
 | `text` | `string` | required | The claim, past tense, ≤60 words. State facts plainly; store the *claim*, not polished CV prose, and never editorialize ("single-handedly", "world-class"). |
 | `quantification` | `object{metric, value, unit, baseline}` | optional | For `type: impact`. |
-| `tools_referenced` | `array<string>` | optional | Subset of the parent block's `tools`. |
-| `keywords` | `array<string>` | optional | Free-text retrieval keywords, lower-case. |
 
-### 2.6 `provenance` (one per role group and per block; evidence items inherit)
-| Field | Type | Disposition | Notes |
-|---|---|---|---|
-| `source` | `string<enum>` | required | `provenance_source` vocab. |
-| `source_detail` | `string` | optional | E.g. `"2026-05-25_cv.pdf"` or `"capture 2026-03-15"`. |
-| `created_at` | ISO 8601 | required | |
-| `last_modified_at` | ISO 8601 | required | |
-| `reviewed_by_consultant` | `boolean` | optional | Default `false`. Flips to `true` only on explicit review; set `reviewed_at` then. |
-| `reviewed_at` | ISO 8601 | optional | Present iff `reviewed_by_consultant == true`. |
-
-### 2.7 IDs
+### 2.6 IDs
 IDs are assigned by the **Writer**, not the producer LLM. The producer leaves ID fields blank (`""`) on new objects; the Writer mints them and preserves existing IDs on modification. This prevents ID collisions from LLM invention.
 
-### 2.8 `gaps` — structured missing/unconfirmed information
+### 2.7 `gaps` — structured missing/unconfirmed information
 
 A top-level array. Each gap is a thing the chatbot can turn into a question for the consultant. Gaps are how the profile stays honest about what it doesn't know, instead of guessing. The chatbot reads `gaps`, asks the consultant, and on answer either fills the profile (and removes the gap) or records that the consultant declined.
 
@@ -229,8 +219,6 @@ Producer LLMs prefer these values. On **extendable** vocabularies, an unlisted v
 
 **`process_standard`** *(extendable, suggestions)* — `ISO 26262`, `ISO 9001`, `ISO 27001`, `IEC 61508`, `IEC 62304`, `DO-178C`, `V-model`, `Agile`, `Scrum`, `SAFe`, `Kanban`, `DevOps`, `CMMI`, `6sigma (DMAIC)`, `TOPS 8D`
 
-**`provenance_source`** *(closed)* — `cv_import`, `capture_session`, `consultant_review`, `talent_advisor_edit`, `migration`, `manual`
-
 **`gap_kind`** *(closed)* —
 `missing_required` (a required field could not be sourced) ·
 `ambiguous_dates` (dates absent or imprecise) ·
@@ -255,7 +243,6 @@ Producer LLMs prefer these values. On **extendable** vocabularies, an unlisted v
 
 ### 4.2 Cross-field
 - Each `block.started`/`ended` falls within its parent role group's range (`"present"` propagates from an open role group to its blocks). *Skipped for objects whose dates are recorded as gaps.*
-- Each `evidence_item.tools_referenced` value appears in its parent block's `tools` (when `tools` present).
 - No two role groups share the same `organization.name` with overlapping dates (use blocks). Personal projects are exempt.
 - Every gap's `target_ref` (when present) references an existing object.
 
@@ -267,7 +254,7 @@ Producer LLMs prefer these values. On **extendable** vocabularies, an unlisted v
 When a **required** field cannot be sourced or reasonably inferred, the producer LLM **does not guess and does not discard the object**. It:
 1. Omits the field (no placeholder value).
 2. Sets `needs_review: true` on the containing object.
-3. Adds a `gap` (§2.8) with `kind` (usually `missing_required` or `ambiguous_dates`), `severity: blocking`, a `target_ref`, a `description`, and a `suggested_question`.
+3. Adds a `gap` (§2.7) with `kind` (usually `missing_required` or `ambiguous_dates`), `severity: blocking`, a `target_ref`, a `description`, and a `suggested_question`.
 
 A genuine **hard error** (input that cannot yield a valid object at all — e.g. contradictory information with no defensible reading, or no identifiable role) is still reported as a producer error and not persisted:
 ```yaml
@@ -301,10 +288,11 @@ Apply §4.4 — flag, don't guess. Common cases:
 - **No dates at all** (e.g. an "additional experience" line): keep the role as skeleton, omit dates, `needs_review: true`, `ambiguous_dates` gap, `severity: blocking`.
 - **Aspirational signals** (the CV reads as "I want AI work"): do not invent employment. Record as a `preferences` candidate (consultant-owned) and, if useful, a `missing_useful` gap to confirm direction in capture.
 - **Unattributed tools/skills:** `unattributed_skill` gap with a `suggested_question` inviting the consultant to point to a project (professional or personal) demonstrating the skill.
+- **Consultant client assignments (`employment_type: consultant_via_employer`):** The role_group organisation is the **employer** (e.g. the consulting firm); the `client` field on each block is the **end client** (e.g. the company where the work happens). Block `started`/`ended` are the **client-assignment dates**. If the CV does not state explicit dates for a client assignment, create an `ambiguous_dates` gap — do **not** default to the employer's start or end date. The `role_title` should describe the role only (e.g. "Senior Software Function Developer"), not embed the client name — that belongs in `client.name`.
 
 ### 5.3 Experience Capture / chatbot behavior
 - Reads `gaps`, prioritizes `blocking` then `valuable`, and asks the consultant using `suggested_question` (rephrasing as natural).
-- On an answer: route the *factual* content into the profile (filling the gapped field, adding a block/evidence item, or creating a `personal_project` role group as appropriate per the attachment principle), set the relevant `provenance.source: capture_session`, and mark the gap `resolved`. If the consultant declines, mark it `declined` (don't keep re-asking).
+- On an answer: route the *factual* content into the profile (filling the gapped field, adding a block/evidence item, or creating a `personal_project` role group as appropriate per the attachment principle), mark the gap `resolved`, and set `verified: true` on any block the consultant explicitly confirmed. If the consultant declines, mark it `declined` (don't keep re-asking).
 - Applies the same compression discipline (§5.1) to captured input: store claims, not the consultant's verbatim phrasing.
 - Style/presentation signals discovered during capture go to `style.md`, not here (see the style design doc).
 
@@ -317,8 +305,8 @@ Apply §4.4 — flag, don't guess. Common cases:
 - **Evidence types** shape phrasing: `impact` leads with `quantification`; `achievement` with the outcome; `responsibility` with scope; `decision` with the choice/rationale; `artifact` with the thing built.
 - **Personal projects** (`personal_project` / `open_source`) are real evidence; surface when relevant and **never imply they were professional engagements** — label honestly.
 - **Aspirational interests** live in `preferences`; combine with a related personal project to honestly frame direction when the position warrants. Default to omitting such framing unless relevant.
-- **`needs_review` / gapped data:** usable, but treat unconfirmed fields cautiously — don't state a gapped date as if certain; prefer ranges or omission. High-stakes specifics from unreviewed `cv_import` get a lighter touch.
-- **Trust:** `reviewed_by_consultant: true` → use freely. Unreviewed `cv_import` → faithful but unconfirmed.
+- **`needs_review` / gapped data:** usable, but treat unconfirmed fields cautiously — don't state a gapped date as if certain; prefer ranges or omission.
+- **Trust:** `verified: true` on a block → consultant has confirmed its content, use freely. Absent → imported or inferred but unconfirmed; faithful but treat with a lighter touch on high-stakes specifics.
 - **Time math:** block duration = `ended − started` months (`"present"` = `as_of`); don't double-count overlapping blocks.
 
 ---
@@ -327,11 +315,11 @@ Apply §4.4 — flag, don't guess. Common cases:
 
 ```yaml
 metadata:
-  schema_version: "1.1"
+  schema_version: "1.2"
   consultant_id: "norberto_munoz"
   created_at: "2026-05-27T12:00:00Z"
-  updated_at: "2026-05-27T12:00:00Z"
-  as_of: "2026-05"
+  updated_at: "2026-06-09T12:00:00Z"
+  as_of: "2026-06"
   source_archive: "uploads/2026-05-25_cv.pdf"
 
 identity:
@@ -362,10 +350,21 @@ career_history:
           needs_review: true
           evidence_items:
             - { evidence_id: "", type: "responsibility",
-                text: "Led a software development team: resourcing, goals, career development, appraisals and delivery against targets.",
-                keywords: ["people-management","team-lead"] }
-          provenance: { source: "cv_import", source_detail: "2026-05-25_cv.pdf", created_at: "...", last_modified_at: "...", reviewed_by_consultant: false }
-      provenance: { source: "cv_import", source_detail: "2026-05-25_cv.pdf", created_at: "...", last_modified_at: "...", reviewed_by_consultant: false }
+                text: "Led a software development team: resourcing, goals, career development, appraisals and delivery against targets." }
+        - block_id: "b_ge_dev"
+          role_title: "Embedded Control SW Developer"
+          started: "2005-09"
+          ended: "2011-01"
+          block_type: "technical_delivery"
+          seniority: "mid"
+          verified: true
+          domains: ["embedded systems", "control systems", "turbine engine control"]
+          languages: ["Fortran", "Perl"]
+          tools: ["beacon7", "IBM Synergy", "Unix"]
+          processes_standards: ["V-model", "6sigma (DMAIC)"]
+          evidence_items:
+            - { evidence_id: "", type: "responsibility",
+                text: "Developed embedded control software for turbine engines (marine and industrial), end to end from budget negotiation through validation in test cells." }
 
 gaps:
   - gap_id: "g1"
@@ -393,7 +392,11 @@ gaps:
 
 ## 8. Appendix: versioning & deferred items
 
-**Versioning.** `metadata.schema_version` required; Writer rejects unknown versions. Semantic versioning: major = breaking (needs migration), minor = additive (existing profiles stay valid), patch = clarification. Migrations are deterministic, never invent data, tag modified objects `provenance.source: migration`.
+**Versioning.** `metadata.schema_version` required; Writer rejects unknown versions. Semantic versioning: major = breaking (needs migration), minor = additive (existing profiles stay valid), patch = clarification. Migrations are deterministic and never invent data.
+
+**1.2 → 1.3 migration:** No removal of existing data. Optionally backfill `client.name` on blocks within `consultant_via_employer` role_groups by parsing the client name out of `role_title` (e.g. `"Senior Software Function Developer — Volvo Group"` → `client.name: "Volvo Group"`, `role_title: "Senior Software Function Developer"`). Update `metadata.schema_version` to `"1.3"`.
+
+**1.1 → 1.2 migration:** Remove all `provenance` objects from role_groups and blocks. Remove `keywords` and `tools_referenced` from all evidence_items. If any block had `provenance.reviewed_by_consultant: true`, add `verified: true` directly on that block; discard all other provenance fields. Update `metadata.schema_version` to `"1.2"`.
 
 **Deferred (out of scope for now):**
 - `skill_claims` — queryable aggregated-skills layer; generator derives from blocks at read time for now.

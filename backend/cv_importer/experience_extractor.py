@@ -10,7 +10,7 @@ _SCHEMA_PATH = Path(__file__).parent.parent.parent / "project_context" / "consul
 _SYSTEM_TEMPLATE = """\
 You are an expert CV parser. Extract structured career data from the provided CV text and return it as valid YAML.
 
-=== CONSULTANT PROFILE SCHEMA (v1.1) ===
+=== CONSULTANT PROFILE SCHEMA (v1.3) ===
 {schema}
 === END SCHEMA ===
 
@@ -41,7 +41,16 @@ OUTPUT RULES:
    - Grade by recency: recent/core roles keep all atoms; old/minor roles compress toward skeleton + a summary line.
    - Distribute flat skill lists onto the blocks where context supports them; skills that map to no role → unattributed_skill gap.
 9. evidence_items: plain factual claims, past tense, ≤60 words. No editorializing.
-10. Set provenance.source: "cv_import" on every role_group and block.
+10. CONSULTANT ENGAGEMENTS (employment_type: consultant_via_employer):
+    - The role_group organisation is the EMPLOYER (e.g. "Mpya Sci & Tech"). Each block's `client.name`
+      is the END CLIENT where the work actually happens (e.g. "Volvo Group"). Set `client.department`
+      if the CV names a unit or team within the client.
+    - role_title describes the role only (e.g. "Senior Software Function Developer") — do NOT embed
+      the client name in role_title; it belongs in client.name.
+    - Block started/ended are the CLIENT ASSIGNMENT dates, not the employer's tenure dates. These two
+      date ranges are different and must not be conflated.
+    - If the CV does not state explicit start/end dates for a client assignment, create an
+      `ambiguous_dates` gap — do NOT copy or default to the employer's dates.
 """
 
 
@@ -99,6 +108,6 @@ async def extract_experience(raw_text: str) -> tuple[dict | None, list[dict], st
         list(data.keys()),
         len(data.get("gaps", [])),
     )
-    # Gaps and needs_review flags are normal v1.1 output — they are NOT errors.
+    # Gaps and needs_review flags are normal v1.2 output — they are NOT errors.
     # Return the data as-is; the Writer will handle gaps and assign IDs.
     return data, [], raw

@@ -14,35 +14,18 @@ Steps:
 
 from __future__ import annotations
 
-import json
-import re
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
-import yaml
-
-from backend.config import APPLICATION_TRACKER_DIR, DATA_DIR, JOB_STORE_DIR
-from ..source_collector.position_writer import list_active_positions, save_position
+from backend.config import JOB_STORE_DIR
+from backend.profile_reader import load_profile
+from ..verdict_store import VerdictStoreError, load_verdicts
+from ..source_collector.position_writer import job_identity_key, list_active_positions, load_position, save_position
 from .config_reader import load_config
 from .scoring_engine import score_job
 from .exploration_selector import select_exploration_slots
 
 
 BATCH_SIZE = 10
-
-
-def _load_profile(consultant_id: str) -> Optional[Dict[str, Any]]:
-    profile_path = DATA_DIR / consultant_id / "profile.md"
-    if not profile_path.exists():
-        return None
-    md = profile_path.read_text(encoding="utf-8")
-    m = re.search(r"```yaml\s*(.*?)```", md, re.S)
-    if not m:
-        return None
-    try:
-        return yaml.safe_load(m.group(1)) or {}
-    except Exception:
-        return None
 
 
 def run_matching(consultant_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -52,9 +35,10 @@ def run_matching(consultant_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, An
     selected_batch: list of job dicts with match_score and score_breakdown set.
     stats: {total_active, scored, selected, config_source}
     """
-    profile = _load_profile(consultant_id)
-    if not profile:
-        raise ValueError(f"Profile not found for consultant: {consultant_id}")
+    try:
+        profile = load_profile(consultant_id)
+    except FileNotFoundError as e:
+        raise ValueError(str(e)) from e
 
     config = load_config(consultant_id)
     config_source = "existing"
@@ -68,14 +52,26 @@ def run_matching(consultant_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, An
     total_active = len(all_active_jobs)
 
     # Exclude jobs already reviewed by this consultant
-    verdicts_path = APPLICATION_TRACKER_DIR / f"{consultant_id}_verdicts.json"
     reviewed_ids: set = set()
-    if verdicts_path.exists():
-        try:
-            reviewed_ids = set(json.loads(verdicts_path.read_text(encoding="utf-8")).keys())
-        except Exception:
-            pass
-    active_jobs = [j for j in all_active_jobs if j["job_id"] not in reviewed_ids]
+    reviewed_identity_keys: set = set()
+    try:
+        verdicts = load_verdicts(consultant_id)
+    except VerdictStoreError as exc:
+        raise ValueError(str(exc)) from exc
+    reviewed_ids = set(verdicts.keys())
+    reviewed_identity_keys = {
+        str(v.get("identity_key") or "")
+        for v in verdicts.values()
+        if isinstance(v, dict) and v.get("identity_key")
+    }
+    for jid in reviewed_ids:
+        job = load_position(jid, JOB_STORE_DIR)
+        if job:
+            reviewed_identity_keys.add(job_identity_key(job))
+    active_jobs = [
+        j for j in all_active_jobs
+        if j["job_id"] not in reviewed_ids and job_identity_key(j) not in reviewed_identity_keys
+    ]
 
     if not active_jobs:
         return [], {
