@@ -14,7 +14,7 @@
   --sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;
 }
 html,body{height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
-.app{display:grid;grid-template-columns:350px 1fr;grid-template-rows:52px 1fr;min-height:100vh}
+.app{display:grid;grid-template-columns:350px 1fr;grid-template-rows:52px 1fr;height:100vh}
 
 @media print{
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-sizing:border-box!important}
@@ -295,13 +295,43 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
 .cvs-course::before{content:'•';position:absolute;left:0;color:var(--cvacc,#972182)}
 
 /* ── FOOTER: full width ── */
-..cvs-ft-grey{grid-column:1/-1;background:#e5e1da;height:16mm;grid-column:1/2}
+.cvs-ft-grey{grid-column:1/2;background:#e5e1da;height:16mm}
 .cvs-ft{grid-column:1/-1;display:grid;grid-template-columns:26.4% 1fr;min-height:16mm}
 .cvs-ft-inner{background:#ffffff;display:flex;align-items:center;justify-content:space-between;padding:0 5.8mm;font-family:var(--sans);font-size:9px;color:var(--ink-soft);box-sizing:border-box;border-top:1px solid #dedad3}
 .cvs-ft-inner-text{display:flex;flex-direction:column;gap:2px;line-height:1.45}
 .cvs-ft-inner-logo{height:10mm;width:auto;max-width:28mm;object-fit:contain;object-position:right center;flex-shrink:0;display:block}
 
 .cv-ph{color:#ccc;font-style:italic}
+
+/* ── Page break markers (preview only, hidden in print) ── */
+.page-break-marker{
+  position:absolute!important;
+  left:0;right:0;height:2px;
+  overflow:visible;
+  pointer-events:none;
+  z-index:10!important;
+}
+.page-break-marker::before{
+  content:'';
+  display:block;
+  position:absolute;
+  left:0;right:0;top:0;height:2px;
+  background:repeating-linear-gradient(90deg,#c05800 0,#c05800 10px,transparent 10px,transparent 18px);
+}
+.page-break-marker::after{
+  content:attr(data-label);
+  display:block;
+  position:absolute;
+  left:50%;top:-9px;
+  transform:translateX(-50%);
+  background:#c05800;color:#fff;
+  font-family:'Source Sans 3',sans-serif;
+  font-size:9px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 8px;border-radius:2px;
+  white-space:nowrap;
+}
+@media print{.page-break-marker{display:none!important}}
 
 /* ── CHAT PANEL ── */
 .chat-panel{
@@ -422,13 +452,12 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
     <span id="currentUserLabel"></span>
   </span>
   <div class="hbtns">
-    <input type="file" id="cvImportInput" accept=".pdf,.doc,.docx,.xml" style="display:none" onchange="handleImportFile(this.files[0]);this.value=''">
+    <input type="file" id="cvImportInput" accept=".pdf,.doc,.docx" style="display:none" onchange="handleImportFile(this.files[0]);this.value=''">
     <button class="hbtn hbtn-ghost" id="importBtn" onclick="document.getElementById('cvImportInput').click()">↑ Import CV</button>
     <button class="hbtn hbtn-ghost" onclick="openGenerateModal()">✦ Generate CV</button>
-    <button class="hbtn hbtn-ghost" onclick="saveCurrentState().then(()=>_activeJobId&&_updatePositionStatus(_activeJobId,'applied')).finally(()=>window.print())">↓ Print / PDF</button>
     <button class="hbtn hbtn-ghost" onclick="goToOpportunities()">⚡ Find Opportunities</button>
+    <button class="hbtn hbtn-ghost" onclick="saveCurrentState().then(()=>_activeJobId&&_updatePositionStatus(_activeJobId,'applied')).finally(()=>window.print())">↓ Print / PDF</button>
     <button class="hbtn hbtn-ghost" id="chatToggleBtn" onclick="toggleChat()">✦ CV Assistant</button>
-    <button class="hbtn hbtn-acc" onclick="downloadCV()">Download HTML</button>
   </div>
 </header>
 
@@ -475,20 +504,6 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
 
 <!-- EDITOR -->
 <aside class="sidebar">
-
-  <!-- API key for CV import -->
-  <div style="margin:10px 18px 6px;background:#1a1a1a;border:1px solid #2a2a2a;border-left:2px solid var(--acc);border-radius:2px;padding:8px 10px">
-    <div style="font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#555;margin-bottom:6px">Anthropic API key &mdash; for CV import</div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <input id="apiKeyInput" type="password" placeholder="sk-ant-&hellip;" autocomplete="off"
-        style="flex:1;background:#2c2c2c;border:1px solid #3a3a3a;color:#ddd;font-family:var(--sans);font-size:11px;padding:4px 7px;border-radius:2px;outline:none"
-        onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='#3a3a3a'"
-        onkeydown="if(event.key==='Enter')saveApiKey()">
-      <button onclick="saveApiKey()"
-        style="background:var(--acc);border:none;color:#fff;font-family:var(--sans);font-size:10px;font-weight:600;padding:4px 10px;border-radius:2px;cursor:pointer;white-space:nowrap">Save</button>
-    </div>
-    <div id="apiKeyStatus" style="font-size:10px;color:#555;margin-top:5px">Not set &mdash; key stored only in this browser.</div>
-  </div>
 
   <span class="slabel">Photo</span>
   <div class="photo-up">
@@ -649,13 +664,8 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
   <!-- EDUCATION -->
   <div class="sdiv"></div>
   <span class="slabel">Education</span>
-  <div class="sfield"><label>Degree</label><input id="iEduDeg" placeholder="MSc in Electronics" oninput="render()"></div>
-  <div class="sfield"><label>Institution</label><input id="iEduSch" placeholder="Kungliga tekniska högskolan" oninput="render()"></div>
-  <div class="srow">
-    <div><label>From</label><input id="iEduFrom" placeholder="1993" oninput="render()"></div>
-    <div><label>To</label><input id="iEduTo" placeholder="1998" oninput="render()"></div>
-  </div>
-  <div class="sfield"><label>Description</label><textarea id="iEduDesc" rows="2" placeholder="Specialization in Systems and Control..." oninput="render()"></textarea></div>
+  <div class="elist" id="eduList"></div>
+  <button class="add-btn" onclick="addEdu()">+ Add education</button>
   <div class="style-box">
     <div class="style-box-title">Education text style</div>
     <div class="sc-row">
@@ -789,7 +799,7 @@ function renderSkillInputs(t){
     c.appendChild(inp);
   });
 }
-['main','other','tool'].forEach(t=>{skills[t]=[''];renderSkillInputs(t)});
+['main','other','tool'].forEach(t=>{skills[t]=[];renderSkillInputs(t)});
 
 /* ── experience ── */
 let expList=[],expId=0,assignId=0;
@@ -926,6 +936,27 @@ function renderCourseList(){
   });
 }
 
+/* ── education ── */
+let eduList=[],eduId=0;
+function addEdu(){eduList.push({id:eduId++,degree:'',institution:'',from:'',to:'',description:''});renderEduList();render()}
+function removeEdu(id){eduList=eduList.filter(e=>e.id!==id);renderEduList();render()}
+function updEdu(id,k,val){const e=eduList.find(x=>x.id===id);if(e){e[k]=val;render()}}
+function renderEduList(){
+  const el=document.getElementById('eduList');el.innerHTML='';
+  eduList.forEach(e=>{
+    const d=document.createElement('div');d.className='entry';
+    d.innerHTML=`<button class="edel" onclick="removeEdu(${e.id})">×</button>
+      <input placeholder="MSc in Electronics" value="${esc(e.degree)}" oninput="updEdu(${e.id},'degree',this.value)">
+      <input placeholder="Kungliga tekniska högskolan" value="${esc(e.institution)}" oninput="updEdu(${e.id},'institution',this.value)">
+      <div class="egrid">
+        <input placeholder="1993" value="${esc(e.from)}" oninput="updEdu(${e.id},'from',this.value)">
+        <input placeholder="1998" value="${esc(e.to)}" oninput="updEdu(${e.id},'to',this.value)">
+      </div>
+      <textarea placeholder="Specialization in Systems and Control..." oninput="updEdu(${e.id},'description',this.value)">${esc(e.description)}</textarea>`;
+    el.appendChild(d);
+  });
+}
+
 /* ── helpers ── */
 function v(id){return(document.getElementById(id)||{}).value||''}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
@@ -954,8 +985,6 @@ function render(){
   const ftText=v('iFtText');
   const ftEmail=v('iFtEmail');
   const ftPhone=v('iFtPhone');
-  const eduDeg=v('iEduDeg'),eduSch=v('iEduSch'),eduFrom=v('iEduFrom'),eduTo=v('iEduTo'),eduDesc=v('iEduDesc');
-
   /* skills */
   function skCol(t){
     const items=skills[t].filter(s=>s.trim());
@@ -992,7 +1021,7 @@ function render(){
 
   /* languages */
   const langHTML=langList.length
-    ?langList.map(e=>`<div class="cvs-lang" style="color:${v('pfColor')||'#444'}">${esc(e.name)}${e.level?': '+esc(e.level):''}</div>`).join('')
+    ?langList.map(e=>`<div class="cvs-lang">${esc(e.name)}${e.level?': '+esc(e.level):''}</div>`).join('')
     :'<div class="cv-ph" style="font-size:10px">Add languages →</div>';
 
   /* courses */
@@ -1076,12 +1105,14 @@ ${expRows}
       <div style="display:flex;flex-wrap:wrap;gap:14px;width:100%">
         <div style="min-width:0;flex:1 1 140px">
           <div class="cvs-edu-ctitle" style="color:${accentColor}">Degree</div>
-          ${eduDeg||eduSch?`
-            <div class="cvs-edu-deg" style="${ts('ed')};font-weight:600;color:var(--ink)">${esc(eduDeg)||'—'}</div>
-            <div class="cvs-edu-sch" style="${ts('ed')}">${esc(eduSch)}</div>
-            ${eduFrom||eduTo?`<div class="cvs-edu-dates">${esc(eduFrom)}${eduFrom&&eduTo?' – ':''}${esc(eduTo)}</div>`:''}
-            ${eduDesc?`<div class="cvs-edu-desc" style="${ts('ed')}">${esc(eduDesc).replace(/\n/g,'<br>')}</div>`:''}
-          `:`<div class="cv-ph" style="font-size:10px">Add education →</div>`}
+          ${eduList.length
+            ?eduList.map(e=>`<div style="margin-bottom:8px">
+                <div class="cvs-edu-deg" style="${ts('ed')};font-weight:600;color:var(--ink)">${esc(e.degree)||'—'}</div>
+                <div class="cvs-edu-sch" style="${ts('ed')}">${esc(e.institution)}</div>
+                ${e.from||e.to?`<div class="cvs-edu-dates">${esc(e.from)}${e.from&&e.to?' – ':''}${esc(e.to)}</div>`:''}
+                ${e.description?`<div class="cvs-edu-desc" style="${ts('ed')}">${esc(e.description).replace(/\n/g,'<br>')}</div>`:''}
+              </div>`).join('')
+            :`<div class="cv-ph" style="font-size:10px">Add education →</div>`}
         </div>
         <div style="min-width:0;flex:1 1 140px">
           <div class="cvs-edu-ctitle" style="color:${accentColor}">Courses</div>
@@ -1110,66 +1141,19 @@ ${hasFooter?`<div class="cvs-ft">
   /* Assign footer logo src after innerHTML is written — never inside template */
   const ftLogo = sheet.querySelector('#cvsFtLogo');
   if(ftLogo) ftLogo.src = MPYA_LOGO;
+  updatePageMarkers();
 }
 
 /* ── Opportunity Dashboard navigation ── */
 function goToOpportunities(){
   const id = (localStorage.getItem('mpya_consultant_id')||'').trim();
   if(!id){
-    showToast('Import a CV first to enable opportunity matching.','warn');
+    toast('Import a CV first to enable opportunity matching.','#c04040');
     return;
   }
   saveCurrentState().finally(function(){
     window.location.href = 'opportunity-dashboard.html?consultant_id=' + encodeURIComponent(id);
   });
-}
-
-/* ── Download ── */
-function downloadCV(){
-  const name = v('iName')||'cv';
-  const sheet = document.getElementById('cvSheet');
-
-  /* 1. Collect all CSS from same-origin stylesheets */
-  let css = '';
-  try{
-    for(const ss of document.styleSheets){
-      if(ss.href && !ss.href.startsWith(location.origin) && !ss.href.startsWith('blob:')) continue;
-      for(const r of ss.cssRules){ try{ css += r.cssText + '\n'; }catch(e){} }
-    }
-  }catch(e){}
-
-  /* 2. Google Fonts link tag */
-  const fonts = document.querySelector('link[href*="fonts.googleapis"]').outerHTML;
-
-  /* 3. Snapshot the rendered CV sheet inner HTML
-        (footer logo src already set as DOM property by render()) */
-  const cvHTML = sheet.outerHTML;
-
-  /* 4. Build a fully self-contained page — no editor chrome, centred CV */
-  const html = `<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8">
-<title>${esc(name)} – CV</title>
-${fonts}
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Source Sans 3',sans-serif;background:#bbb8b0;display:flex;justify-content:center;padding:40px}
-${css}
-/* Reset grid — no sidebar in standalone view */
-.app{display:block}
-</style>
-<script>
-/* Logo constant needed by any injected footer scripts */
-const MPYA_LOGO='${MPYA_LOGO}';
-<\/script>
-</head>
-<body>${cvHTML}</body></html>`;
-
-  const blob = new Blob([html], {type:'text/html'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name.toLowerCase().replace(/\s+/g,'-')+'.html';
-  a.click();
 }
 
 /* ══════════════════════════════════════════
@@ -1252,85 +1236,6 @@ async function handleImportFile(file){
   importBtnState(false);
 }
 
-const _IMPORT_SYS=`Return ONLY raw JSON, no markdown, no explanation. Missing fields use "" or [].
-{"iName":"","iRole":"","iEmail":"","iPhone":"","iAvail":"","iSummary":"2-4 sentences, third person",
-"skills":{"main":["languages/core tech"],"other":["domain/standards/certs"],"tool":["software/IDEs/tools"]},
-"experience":[{"company":"","location":"","from":"Mon YYYY","to":"Mon YYYY or Present","assignments":[{"role":"","period":"start-end","bullets":["full sentence"],"tools":""}]}],
-"education":{"degree":"","institution":"","from":"YYYY","to":"YYYY","description":""},
-"languages":[{"name":"","level":""}],"courses":[""]}
-Rules: keep all jobs; each role = one assignment; bullets = complete sentences.`;
-
-async function callClaude(cv,_attempt){
-  /* -- API key check -- */
-  const apiKey=(localStorage.getItem('mpya_import_key')||'').trim().replace(/[^\x20-\x7E]/g,'');
-  if(!apiKey){
-    toast('[!] Set your Anthropic API key in the sidebar first.','#c04040');
-    importBtnState(false);
-    return;
-  }
-  const attempt=_attempt||1;
-  const maxAttempts=4;
-  toast('Extracting CV data with AI...'+(attempt>1?' (retry '+attempt+'/'+maxAttempts+')':''));
-  try{
-    let messages;
-    if(cv.type==='pdf'){
-      messages=[{role:'user',content:[
-        {type:'document',source:{type:'base64',media_type:cv.mediaType,data:cv.content}},
-        {type:'text',text:'Parse this CV and return the JSON.'}
-      ]}];
-    } else {
-      const truncated=cv.content.slice(0,4000)+(cv.content.length>4000?'\n[truncated]':'');
-    messages=[{role:'user',content:'Parse this CV and return the JSON.\n\n---\n'+truncated}];
-    }
-
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:3000,
-        system:_IMPORT_SYS,
-        messages
-      })
-    });
-
-    if(!res.ok){
-      const e=await res.json().catch(()=>({}));
-      const status=res.status;
-      /* Retry on 529 Overloaded or 529/500 transient errors */
-      if((status===529||status===500||status===503)&&attempt<maxAttempts){
-        const delay=attempt*8000; /* 8s, 16s, 24s */
-        toast('API busy - retrying in '+(delay/1000)+'s ('+attempt+'/'+maxAttempts+')...','#7a6000');
-        await new Promise(r=>setTimeout(r,delay));
-        return callClaude(cv,attempt+1);
-      }
-      throw new Error(e.error?.message||'API error '+status);
-    }
-
-    const body=await res.json();
-    const raw=(body.content||[]).map(b=>b.text||'').join('');
-    const clean=raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
-    const data=JSON.parse(clean);
-
-    toast('Filling in fields...');
-    await new Promise(r=>setTimeout(r,200));
-    populateFromImport(data);
-
-    const expCount=(data.experience||[]).length;
-    const skillCount=[...(data.skills?.main||[]),...(data.skills?.other||[]),...(data.skills?.tool||[])].length;
-    toast('Done: Imported &nbsp;<strong>'+esc(data.iName||'CV')+'</strong><br><span style="color:#777;font-size:11px">'+expCount+' positions / '+skillCount+' skills</span>','#3a7a3a');
-    setTimeout(toastHide,5000);
-  } catch(err){
-    toast('[!] Import failed: '+err.message,'#c04040');
-  }
-  importBtnState(false);
-}
-
 function populateFromImport(d){
   /* ── simple text fields ── */
   function sv(id,val){
@@ -1395,45 +1300,21 @@ function populateFromImport(d){
   }
 
   /* ── education ── */
-  if(d.education){
-    sv('iEduDeg', d.education.degree);
-    sv('iEduSch', d.education.institution);
-    sv('iEduFrom',d.education.from);
-    sv('iEduTo',  d.education.to);
-    sv('iEduDesc',d.education.description);
+  const eduArr=Array.isArray(d.education)?d.education:(d.education?[d.education]:[]);
+  if(eduArr.length){
+    eduList=[];eduId=0;
+    eduArr.forEach(function(e){
+      eduList.push({id:eduId++,degree:e.degree||'',institution:e.institution||'',from:e.from||'',to:e.to||'',description:e.description||''});
+    });
+    renderEduList();
   }
 
   render();
 }
 
-function saveApiKey(){
-  const raw=document.getElementById('apiKeyInput').value.trim();
-  const val=raw.replace(/[^\x20-\x7E]/g,''); // strip non-printable-ASCII
-  if(!val){
-    document.getElementById('apiKeyStatus').textContent='Enter a key first.';
-    return;
-  }
-  localStorage.setItem('mpya_import_key',val);
-  document.getElementById('apiKeyInput').value='';
-  document.getElementById('apiKeyStatus').innerHTML='<span style="color:#7ee07e">✓ Key saved.</span> Clear it anytime by saving an empty field.';
-}
-
-function loadApiKeyStatus(){
-  const key=localStorage.getItem('mpya_import_key')||'';
-  const el=document.getElementById('apiKeyStatus');
-  if(!el)return;
-  if(key){
-    const masked='sk-ant-…'+key.slice(-4);
-    el.innerHTML='<span style="color:#7ee07e">✓ Key set</span> <span style="color:#444">('+masked+')</span> — to clear, save an empty field.';
-  } else {
-    el.textContent='Not set — key stored only in this browser.';
-  }
-}
-
 /* ══ end CV import ══ */
 
 render();
-loadApiKeyStatus();
 
 /* ── Print: stretch .cvs to fill whole last page so grey runs to bottom ──
    In CSS, 1in = 96px exactly. A4 = 297mm = 297/25.4*96 = 1122.52px.
@@ -1456,7 +1337,8 @@ loadApiKeyStatus();
     if(!cvs) return;
     clearFinalPageSpacer();
 
-    // 1. Clear all previously injected break-before overrides
+    // 1. Clear preview markers and injected break-before overrides
+    cvs.querySelectorAll('.page-break-marker').forEach(function(el){el.remove();});
     cvs.querySelectorAll('.cvs-sec-hd-row').forEach(function(el){
       el.style.removeProperty('break-before');
       el.style.removeProperty('page-break-before');
@@ -1621,8 +1503,28 @@ loadApiKeyStatus();
     cvs.style.removeProperty('min-height');
     clearFinalPageSpacer();
     cvs.querySelectorAll('.cvs-ft-injected').forEach(function(el){el.remove();});
+    void cvs.offsetHeight;
+    updatePageMarkers();
   });
 })();
+
+/* ── Page break markers — injected after every render() ── */
+function updatePageMarkers(){
+  var cvs = document.querySelector('.cvs');
+  if(!cvs) return;
+  cvs.querySelectorAll('.page-break-marker').forEach(function(el){el.remove();});
+  var pageH = cvs.offsetWidth * (297/210);
+  var pages = Math.ceil(cvs.scrollHeight / pageH);
+  if(pages < 2) return;
+  cvs.style.minHeight = (pages * pageH) + 'px';
+  for(var p = 2; p <= pages; p++){
+    var m = document.createElement('div');
+    m.className = 'page-break-marker';
+    m.dataset.label = 'Page ' + p;
+    m.style.top = ((p-1) * pageH) + 'px';
+    cvs.appendChild(m);
+  }
+}
 
 /* ── Generate CV modal ── */
 let _activeJobId = null;
@@ -1836,8 +1738,8 @@ function clearFormState(){
   ['iName','iRole','iEmail','iPhone','iAvail','iSummary',
    'pfFont','pfSize','pfColor','pfWeight',
    'skFont','skSize','skColor','skWeight',
+   'exFont','exSize','exColor','exWeight',
    'edFont','edSize','edColor','edWeight',
-   'iEduDeg','iEduSch','iEduFrom','iEduTo','iEduDesc',
    'iFtText','iFtEmail','iFtPhone'].forEach(function(id){
     var el = document.getElementById(id); if(el) el.value = '';
   });
@@ -1846,6 +1748,7 @@ function clearFormState(){
   expList = []; expId = 0; assignId = 0; renderExpList();
   langList = []; langId = 0; renderLangList();
   courseList = []; courseId = 0; renderCourseList();
+  eduList = []; eduId = 0; renderEduList();
   photoSrc = null;
   document.getElementById('photoPrompt').style.display = '';
   var img = document.getElementById('photoPrev'); if(img){ img.src = ''; img.style.display = 'none'; }
@@ -1912,8 +1815,9 @@ function captureFormState(){
     iSummary:v('iSummary'),
     pfFont:v('pfFont'), pfSize:v('pfSize'), pfColor:v('pfColor'), pfWeight:v('pfWeight'),
     skFont:v('skFont'), skSize:v('skSize'), skColor:v('skColor'), skWeight:v('skWeight'),
+    exFont:v('exFont'), exSize:v('exSize'), exColor:v('exColor'), exWeight:v('exWeight'),
     edFont:v('edFont'), edSize:v('edSize'), edColor:v('edColor'), edWeight:v('edWeight'),
-    iEduDeg:v('iEduDeg'), iEduSch:v('iEduSch'), iEduFrom:v('iEduFrom'), iEduTo:v('iEduTo'), iEduDesc:v('iEduDesc'),
+    eduList:eduList.map(function(e){ return { degree:e.degree, institution:e.institution, from:e.from, to:e.to, description:e.description }; }),
     iFtText:v('iFtText'), iFtEmail:v('iFtEmail'), iFtPhone:v('iFtPhone'),
     skills:{ main:skills.main.slice(), other:skills.other.slice(), tool:skills.tool.slice() },
     expList:expList.map(function(e){
@@ -1939,36 +1843,33 @@ function restoreFormState(s){
   sv('iPhone',s.iPhone); sv('iAvail',s.iAvail); sv('iSummary',s.iSummary);
   sv('pfFont',s.pfFont); sv('pfSize',s.pfSize); sv('pfColor',s.pfColor); sv('pfWeight',s.pfWeight);
   sv('skFont',s.skFont); sv('skSize',s.skSize); sv('skColor',s.skColor); sv('skWeight',s.skWeight);
+  sv('exFont',s.exFont); sv('exSize',s.exSize); sv('exColor',s.exColor); sv('exWeight',s.exWeight);
   sv('edFont',s.edFont); sv('edSize',s.edSize); sv('edColor',s.edColor); sv('edWeight',s.edWeight);
-  sv('iEduDeg',s.iEduDeg); sv('iEduSch',s.iEduSch); sv('iEduFrom',s.iEduFrom); sv('iEduTo',s.iEduTo); sv('iEduDesc',s.iEduDesc);
   sv('iFtText',s.iFtText); sv('iFtEmail',s.iFtEmail); sv('iFtPhone',s.iFtPhone);
+  eduList = []; eduId = 0;
+  if(s.eduList){ s.eduList.forEach(function(e){ eduList.push({ id:eduId++, degree:e.degree||'', institution:e.institution||'', from:e.from||'', to:e.to||'', description:e.description||'' }); }); }
+  renderEduList();
 
   if(s.skills){
     ['main','other','tool'].forEach(function(t){
       if(s.skills[t] && s.skills[t].length){ skills[t] = s.skills[t].slice(); renderSkillInputs(t); }
     });
   }
-  if(s.expList && s.expList.length){
-    expList = []; expId = 0; assignId = 0;
-    s.expList.forEach(function(e){
-      expList.push({ id:expId++, company:e.company||'', location:e.location||'', from:e.from||'', to:e.to||'',
-        assignments:(e.assignments||[]).map(function(a){
-          return { id:assignId++, role:a.role||'', period:a.period||'', descHtml:a.descHtml||'', tools:a.tools||'' };
-        })
-      });
+  expList = []; expId = 0; assignId = 0;
+  if(s.expList){ s.expList.forEach(function(e){
+    expList.push({ id:expId++, company:e.company||'', location:e.location||'', from:e.from||'', to:e.to||'',
+      assignments:(e.assignments||[]).map(function(a){
+        return { id:assignId++, role:a.role||'', period:a.period||'', descHtml:a.descHtml||'', tools:a.tools||'' };
+      })
     });
-    renderExpList();
-  }
-  if(s.langList && s.langList.length){
-    langList = []; langId = 0;
-    s.langList.forEach(function(l){ langList.push({ id:langId++, name:l.name||'', level:l.level||'' }); });
-    renderLangList();
-  }
-  if(s.courseList && s.courseList.length){
-    courseList = []; courseId = 0;
-    s.courseList.forEach(function(c){ courseList.push({ id:courseId++, name:c.name||'' }); });
-    renderCourseList();
-  }
+  }); }
+  renderExpList();
+  langList = []; langId = 0;
+  if(s.langList){ s.langList.forEach(function(l){ langList.push({ id:langId++, name:l.name||'', level:l.level||'' }); }); }
+  renderLangList();
+  courseList = []; courseId = 0;
+  if(s.courseList){ s.courseList.forEach(function(c){ courseList.push({ id:courseId++, name:c.name||'' }); }); }
+  renderCourseList();
   if(s.photoSrc && !s.photoSrc.startsWith('data:')){
     photoSrc = s.photoSrc.split('?')[0]+'?t='+Date.now();
     document.getElementById('photoPrompt').style.display = 'none';
