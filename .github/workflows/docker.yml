@@ -1,0 +1,50 @@
+name: Docker
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create CI environment file
+        run: |
+          cat > .env <<'EOF'
+          ANTHROPIC_API_KEY=ci-dummy-key
+          DATA_DIR=data/profiles
+          JOB_STORE_DIR=data/job_store/jobs
+          APPLICATION_TRACKER_DIR=data/application_tracker
+          TA_CONFIG_DIR=data/ta_config
+          DEBUG_CV_IMPORT=false
+          EOF
+
+      - name: Build Docker image
+        run: docker compose build
+
+      - name: Start app
+        run: docker compose up -d
+
+      - name: Wait for health check
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs app
+          exit 1
+
+      - name: Show service status
+        run: docker compose ps
+
+      - name: Stop app
+        if: always()
+        run: docker compose down

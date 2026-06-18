@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: .
+    container_name: cv-adapter-app
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data/profiles
+      JOB_STORE_DIR: /app/data/job_store/jobs
+      APPLICATION_TRACKER_DIR: /app/data/application_tracker
+      TA_CONFIG_DIR: /app/data/ta_config
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

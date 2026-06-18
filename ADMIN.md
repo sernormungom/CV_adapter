@@ -25,6 +25,9 @@ Edit `.env` with your real values:
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 DATA_DIR=data/profiles
+JOB_STORE_DIR=data/job_store/jobs
+APPLICATION_TRACKER_DIR=data/application_tracker
+TA_CONFIG_DIR=data/ta_config
 ```
 
 Never commit `.env`. The `.env.example` file is committed and contains no real secrets.
@@ -174,6 +177,8 @@ python -m pip install -r requirements.txt
 ## Deployment notes
 
 See `docs/architecture/adr/ADR-006-deployment-architecture.md` for the authoritative decisions.
+See `docs/deployment/phase-2-cloud-readiness.md` for the practical phase-2
+checklist after the first Docker setup.
 
 Key points:
 
@@ -182,9 +187,159 @@ Key points:
 - The `--reload` flag in `uvicorn` is for development only; remove it in production
 - If changing the backend port, update any hardcoded `localhost:8000` references in `html/cv-importer.html` and `html/opportunity-dashboard.html`
 
+### Docker deployment basics
+
+The first Docker setup is intentionally simple: one container runs the FastAPI
+application, and the local `data/` folder is mounted into the container.
+
+In Docker vocabulary:
+
+| Term | Meaning in this project |
+|---|---|
+| Image | The packaged app runtime built from `Dockerfile` |
+| Container | A running copy of that image |
+| Compose service | The `app` service in `docker-compose.yml` |
+| Port mapping | `8000:8000`, so Windows can open the app at `http://127.0.0.1:8000/` |
+| Volume/bind mount | `./data:/app/data`, so profiles, jobs, verdicts, and TA config persist |
+| Env file | `.env`, loaded by Compose and used by `backend/config.py` |
+
+The container itself is disposable. If it is rebuilt or removed, anything stored
+only inside the container can disappear. The important application state belongs
+in `data/`, so Compose mounts that folder from the host into `/app/data`.
+
+First run from PowerShell when Docker is installed in Ubuntu WSL:
+
+```powershell
+wsl docker compose up -d --build
+```
+
+Check status:
+
+```powershell
+wsl docker compose ps
+```
+
+Follow logs:
+
+```powershell
+wsl docker compose logs -f app
+```
+
+Stop the app:
+
+```powershell
+wsl docker compose down
+```
+
+Verify the app:
+
+```powershell
+(Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health).Content
+```
+
+Expected response:
+
+```json
+{"status":"ok"}
+```
+
+If `make` is available inside Ubuntu WSL, the equivalent commands from
+PowerShell are:
+
+```powershell
+wsl make docker-up
+wsl make docker-ps
+wsl make docker-logs
+wsl make docker-down
+```
+
+From an Ubuntu WSL terminal opened in this repo, use the same targets without
+the `wsl` prefix:
+
+```bash
+make docker-up
+make docker-ps
+make docker-logs
+make docker-down
+```
+
+Rebuild vs restart:
+
+| Command | Use when |
+|---|---|
+| `wsl docker compose restart app` | You only changed runtime state or want a quick restart |
+| `wsl docker compose up -d --build` | You changed dependencies, Dockerfile, or application code copied into the image |
+| `wsl docker compose down` | You want to stop and remove the running container |
+
+Current Docker scope:
+
+| Included now | Deferred for later |
+|---|---|
+| FastAPI app container | Postgres |
+| Mounted file-backed data | Scheduled collector service |
+| `.env`-based secrets | Playwright browser dependencies inside Docker |
+| Health check | Cloud deployment target |
+
+This matches the current architecture: the app is a modular monolith with shared
+file-backed data. Splitting into microservices should wait until there is a real
+runtime boundary, such as a separate scheduled collector, worker queue, or
+database-backed storage layer.
+
+### Docker CI
+
+GitHub Actions uses `.github/workflows/docker.yml` to validate the Docker setup
+on pushes to `main` and pull requests.
+
+The workflow:
+
+1. Checks out the repository.
+2. Creates a CI-only `.env` file with a dummy `ANTHROPIC_API_KEY`.
+3. Builds the Docker image.
+4. Starts the Compose app service.
+5. Calls `http://127.0.0.1:8000/health`.
+6. Stops the app.
+
+The dummy key is enough for startup and health checks because the workflow does
+not call Anthropic-backed CV import or generation endpoints. This is a smoke
+test, not a deployment pipeline.
+
 ---
 
 ## Troubleshooting
+
+### Docker says the daemon is not running
+
+If PowerShell shows an error such as `docker_engine` pipe not found, the Windows
+Docker daemon is not running. This repo has been verified using Docker inside
+Ubuntu WSL, so use the WSL-prefixed commands:
+
+```powershell
+wsl docker compose ps
+```
+
+If WSL itself is not running, open an Ubuntu terminal once, then retry.
+
+### Docker container starts but the app fails
+
+Check logs:
+
+```powershell
+wsl docker compose logs app
+```
+
+The most common cause is a missing or invalid `.env`, especially
+`ANTHROPIC_API_KEY`.
+
+### Docker app cannot see profiles or jobs
+
+Confirm the data mount exists inside the container:
+
+```powershell
+wsl docker compose exec app python -c "from pathlib import Path; print(sorted(p.name for p in Path('/app/data').iterdir()))"
+```
+
+You should see folders such as `profiles`, `job_store`, `application_tracker`,
+and `ta_config`.
 
 ### `WinError 10013` on startup
 
