@@ -44,7 +44,8 @@ _SWEDISH_MONTHS = {
 _DATE_LABEL_RE = re.compile(
     r"(?:ansökningstiden\s+löper\s+ut|sista\s+ansökningsdag|ansökan\s+senast"
     r"|sista\s+dag\s+att\s+ansöka|deadline|close\s+date|closing\s+date"
-    r"|application\s+deadline|last\s+day\s+to\s+apply|apply\s+by)"
+    r"|application\s+deadline|last\s+day\s+to\s+apply|apply\s+by"
+    r"|job\s+posting\s+end\s+date)"
     r"\s*[:\-–]?\s*"
     r"(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{1,2}\s+\w+\s+\d{4})",
     re.IGNORECASE,
