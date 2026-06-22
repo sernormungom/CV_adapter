@@ -461,8 +461,8 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
   <div class="hbtns">
     <input type="file" id="cvImportInput" accept=".pdf,.doc,.docx" style="display:none" onchange="handleImportFile(this.files[0]);this.value=''">
     <button class="hbtn hbtn-ghost" id="importBtn" onclick="document.getElementById('cvImportInput').click()">↑ Import CV</button>
-    <button class="hbtn hbtn-ghost" onclick="openGenerateModal()">✦ Generate CV</button>
     <button class="hbtn hbtn-ghost" onclick="goToOpportunities()">⚡ Find Opportunities</button>
+    <button class="hbtn hbtn-ghost" onclick="openGenerateModal()">✦ Generate CV</button>
     <button class="hbtn hbtn-ghost" onclick="saveCurrentState().then(()=>_activeJobId&&_updatePositionStatus(_activeJobId,'applied')).finally(()=>window.print())">↓ Print / PDF</button>
     <button class="hbtn hbtn-ghost" id="chatToggleBtn" onclick="toggleChat()">✦ CV Assistant</button>
   </div>
