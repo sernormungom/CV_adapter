@@ -69,6 +69,13 @@ html,body{height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink
     break-after:avoid!important;
     page-break-after:avoid!important;
   }
+  .cvs-divider{
+    height:0!important;
+    border-top:1px solid var(--cvacc,#972182)!important;
+    background:transparent!important;
+    position:relative!important;
+    z-index:3!important;
+  }
 
   /* Hide screen footer; print footers are absolutely positioned by JS */
   .cvs-ft{display:none!important}
@@ -271,8 +278,8 @@ header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justi
 .cvs-exp-desc ul{list-style:disc}
 .cvs-exp-desc ol{list-style:decimal}
 
-/* Full-width purple section divider — sits directly under section heading */
-.cvs-divider{grid-column:1/-1;height:1px;background:var(--cvacc,#972182);}
+/* Full-width purple section divider — border avoids print antialias mismatch across column backgrounds */
+.cvs-divider{grid-column:1/-1;height:0;border-top:1px solid var(--cvacc,#972182);background:transparent;position:relative;z-index:3}
 /* Section heading row — grey left + white right, no bottom padding so divider sits flush */
 .cvs-sec-hd-row{grid-column:1/-1;display:grid;grid-template-columns:26.4% minmax(0,1fr)}
 .cvs-sec-hd-l{background:transparent;padding:14px 12px 6px 18px}
@@ -1410,11 +1417,20 @@ render();
     const spacer = Math.min(maxSpacer, Math.floor(spareAboveFooter / 2));
     if(spacer < minUsefulSpacer) return;
 
+    const boundarySnap = 45 * pxPerMm;
     let target = contentEls.find(function(el){
       return el.classList.contains('cvs-exp-row') &&
         el.offsetTop < lastPageStart &&
-        (el.offsetTop + el.offsetHeight) > lastPageStart;
+        (lastPageStart - el.offsetTop) <= boundarySnap;
     });
+    if(!target){
+      target = contentEls.find(function(el){
+        return el.classList.contains('cvs-exp-row') &&
+          el.offsetTop < lastPageStart &&
+          (el.offsetTop + el.offsetHeight) > lastPageStart &&
+          (lastPageStart - el.offsetTop) <= boundarySnap;
+      });
+    }
     if(!target){
       target = contentEls.find(function(el){
         return el.classList.contains('cvs-exp-row') && el.offsetTop >= lastPageStart;
