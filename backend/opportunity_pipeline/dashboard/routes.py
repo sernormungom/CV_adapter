@@ -47,6 +47,7 @@ from ..source_collector.position_writer import (
     list_active_positions,
     load_position,
     mark_expired_positions,
+    purge_expired_positions,
     save_position,
     write_positions,
 )
@@ -293,8 +294,9 @@ def run_cycle(consultant_id: str) -> dict:
     raw_items = collect_from_sources(sources, _PROJECT_ROOT) if sources else []
     manifest = write_positions(raw_items, JOB_STORE_DIR)
 
-    # Step 1b: Expire stale / closing-soon positions
+    # Step 1b: Expire stale / closing-soon positions, then purge old expired ones
     expiry = mark_expired_positions(JOB_STORE_DIR)
+    purge = purge_expired_positions(JOB_STORE_DIR)
 
     # Step 2: Match
     try:
@@ -315,6 +317,7 @@ def run_cycle(consultant_id: str) -> dict:
             "duplicate": manifest["duplicate"],
             "error": manifest["error"],
             "expired": expiry["marked_expired"],
+            "purged": purge["purged"],
             "error_details": error_details,
         },
         "matching": match_stats,

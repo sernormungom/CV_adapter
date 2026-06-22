@@ -15,6 +15,7 @@ Job Store schema (one file per job at JOB_STORE_DIR/{job_id}.json):
   raw_text        str
   collected_at    ISO-8601 str
   close_date      YYYY-MM-DD str | null  — application deadline; null if unknown
+  expired_at      ISO-8601 str | null    — set when status transitions to "expired"
   match_score     float | null     — set by Pre-Filter & Matcher
   score_breakdown dict | null      — set by Pre-Filter & Matcher
   batch_selected  bool             — true if in current top-10 batch
@@ -37,8 +38,12 @@ from .board_connector import build_identity_key, extract_source_native_id
 # ---------------------------------------------------------------------------
 
 _SWEDISH_MONTHS = {
+    # full names
     "januari": 1, "februari": 2, "mars": 3, "april": 4, "maj": 5, "juni": 6,
     "juli": 7, "augusti": 8, "september": 9, "oktober": 10, "november": 11, "december": 12,
+    # abbreviations (Swedish + overlapping English)
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "okt": 10, "nov": 11, "dec": 12,
 }
 
 _DATE_LABEL_RE = re.compile(
@@ -97,15 +102,63 @@ def _extract_close_date(raw_text: str) -> Optional[str]:
 # Expiry / cleanup
 # ---------------------------------------------------------------------------
 
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+_TRAILING_TIME_RE = re.compile(r"\s+\d{1,2}:\d{2}.*$")
+_TRAILING_PAREN_RE = re.compile(r"\s*\(.*?\)\s*$")
+
+
+def _parse_close_date(raw: str) -> Optional[date]:
+    """
+    Parse a stored close_date value into a date object.
+    Handles:
+      - YYYY-MM-DD
+      - DD mon YYYY or DD month YYYY (Swedish full names, Swedish/English abbreviations)
+      - Board strings like "16 jun 2026 23:59 (1 dag kvar)" — trailing time and
+        parenthetical text are stripped before parsing.
+    Returns None for empty or unparseable input.
+    """
+    if not raw:
+        return None
+    s = _TRAILING_PAREN_RE.sub("", raw).strip()
+    s = _TRAILING_TIME_RE.sub("", s).strip()
+
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", s):
+        try:
+            return date.fromisoformat(s)
+        except ValueError:
+            return None
+
+    m = re.match(r"^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$", s)
+    if m:
+        d_val, month_name, y_val = int(m.group(1)), m.group(2).lower(), int(m.group(3))
+        mo = _SWEDISH_MONTHS.get(month_name)
+        if mo is None:
+            try:
+                mo = datetime.strptime(month_name, "%B").month
+            except ValueError:
+                return None
+        try:
+            return date(y_val, mo, d_val)
+        except ValueError:
+            return None
+
+    return None
+
+
 def mark_expired_positions(
     job_store_dir: Path,
     days_before_close: int = 7,
     max_age_days: int = 30,
 ) -> Dict[str, int]:
     """
-    Mark active jobs as expired when:
-    - close_date is set and is within days_before_close days (or already past)
-    - close_date is null and collected_at is older than max_age_days days
+    Mark active jobs as expired when either condition is true (OR, not fallback):
+    - collected_at is parseable and older than max_age_days, regardless of close_date
+    - close_date is parseable and within days_before_close days (or already past)
+    If neither collected_at nor close_date is usable the job is left unchanged.
+    Also backfills expired_at on already-expired jobs that lack it (not counted).
     Returns {"marked_expired": N}. Never deletes records.
     """
     today = datetime.now(timezone.utc).date()
@@ -118,34 +171,85 @@ def mark_expired_positions(
             job = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             continue
-        if job.get("status") != "active":
+
+        status = job.get("status")
+
+        # Backfill: stamp expired_at on legacy expired jobs that never got one
+        if status == "expired" and not job.get("expired_at"):
+            job["expired_at"] = _utc_now()
+            path.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
+            continue  # not a new expiry; do not increment count
+
+        if status != "active":
             continue
 
         should_expire = False
-        close_date_str = job.get("close_date") or ""
-        if close_date_str:
+
+        # Age cap: always checked — expire regardless of close_date
+        collected_str = job.get("collected_at") or ""
+        if collected_str:
             try:
-                cd = date.fromisoformat(close_date_str[:10])
-                if cd <= cutoff_close:
+                ca = datetime.fromisoformat(collected_str).date()
+                if ca <= cutoff_age:
                     should_expire = True
             except ValueError:
                 pass
-        else:
-            collected_str = job.get("collected_at") or ""
-            if collected_str:
-                try:
-                    ca = datetime.fromisoformat(collected_str).date()
-                    if ca <= cutoff_age:
-                        should_expire = True
-                except ValueError:
-                    pass
+
+        # Close-date window: independently checked — expire if closing soon
+        cd = _parse_close_date(job.get("close_date") or "")
+        if cd is not None and cd <= cutoff_close:
+            should_expire = True
 
         if should_expire:
             job["status"] = "expired"
+            if not job.get("expired_at"):
+                job["expired_at"] = _utc_now()
             path.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
             count += 1
 
     return {"marked_expired": count}
+
+
+def purge_expired_positions(
+    job_store_dir: Path,
+    grace_days: int = 7,
+) -> Dict[str, int]:
+    """
+    Hard-delete expired jobs whose expired_at is older than grace_days.
+    Skips: active jobs, corrupt JSON, missing/invalid expired_at.
+    Does not touch verdict/application-tracker files.
+    Returns {"purged": N}.
+    """
+    now = datetime.now(timezone.utc)
+    threshold = now - timedelta(days=grace_days)
+    count = 0
+
+    for path in sorted(job_store_dir.glob("job_*.json")):
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        if job.get("status") != "expired":
+            continue
+
+        expired_at_str = job.get("expired_at") or ""
+        if not expired_at_str:
+            continue
+
+        try:
+            expired_at = datetime.fromisoformat(expired_at_str)
+        except (ValueError, TypeError):
+            continue
+
+        if expired_at.tzinfo is None:
+            continue
+
+        if expired_at <= threshold:
+            path.unlink()
+            count += 1
+
+    return {"purged": count}
 
 
 # ---------------------------------------------------------------------------
