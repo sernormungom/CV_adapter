@@ -119,7 +119,7 @@ def get_photo(username: str) -> FileResponse:
 
 _STATUS_VALUES = {"to_apply", "cv_ready", "applied"}
 _STATUS_ORDER  = {"to_apply": 0, "cv_ready": 1, "applied": 2}
-_APPLIED_RETENTION_DAYS = 7
+_APPLIED_RETENTION_DAYS = 14
 
 
 @app.get("/api/profiles/{username}/accepted-positions")
@@ -137,7 +137,7 @@ def get_accepted_positions(username: str) -> list:
         if v.get("verdict") != "yes":
             continue
         app_status = v.get("application_status", "to_apply")
-        # Drop applied positions that have been on the board for more than retention days
+        # Drop applied positions older than the retention window
         if app_status == "applied":
             applied_at_str = v.get("applied_at", "")
             if applied_at_str:
@@ -146,18 +146,23 @@ def get_accepted_positions(username: str) -> list:
                         continue
                 except ValueError:
                     pass
-        raw_text = ""
+        job_data: dict = {}
         job_path = JOB_STORE_DIR / f"{job_id}.json"
         if job_path.exists():
-            raw_text = json.loads(job_path.read_text(encoding="utf-8")).get("raw_text", "")
+            job_data = json.loads(job_path.read_text(encoding="utf-8"))
         result.append({
             "job_id": job_id,
             "title": v.get("title_guess", ""),
+            "company": job_data.get("company_hint", ""),
             "source_id": v.get("source_id", ""),
             "source_url": v.get("source_url", ""),
+            "close_date": job_data.get("close_date", ""),
+            "collected_at": job_data.get("collected_at", ""),
+            "job_status": job_data.get("status", ""),
             "match_score": v.get("match_score"),
             "application_status": app_status,
-            "raw_text": raw_text,
+            "applied_at": v.get("applied_at", ""),
+            "raw_text": job_data.get("raw_text", ""),
         })
     return sorted(result, key=lambda x: (
         _STATUS_ORDER.get(x["application_status"], 0),
