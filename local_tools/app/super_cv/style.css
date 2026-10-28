@@ -1,0 +1,785 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Palette/typography lifted from internal/customer-searcher/main.html so this
+   prototype reads as the same family of internal tool -- same Mpya Sci &
+   Tech brand variables, same Arial stack (no webfont dependency), same
+   pill-tag/dashed-container/decorative-circle visual language. Class names
+   below are all unchanged from before this restyle -- app.js/chat.js/
+   resize.js reference them directly and don't need to know the visuals
+   changed underneath. */
+:root {
+  --mpya-purple: #9b1889;
+  --mpya-blue: #52c6e2;
+  --mpya-yellow: #fecb00;
+  --mpya-gray: #e0e1dd;
+  --mpya-navy: #002d59;
+
+  --border: #d7d3cf;
+  --bg: #f4f4f2;
+  --accent: var(--mpya-purple);
+  --tag-bg: #f2e1ef;
+  --tag-bg-hover: #e6c5df;
+  --text: var(--mpya-navy);
+  --muted: #6b7f92;
+
+  --sans: Arial, Helvetica, sans-serif;
+
+  /* Aliases for the names used throughout the rest of this file -- kept so
+     every rule below only has to change once, here, rather than at each
+     call site. */
+  --acc: var(--accent);
+  --acc-dark: #7a1370;
+  --ink: var(--text);
+  --ink-mid: #45566b;
+  --ink-soft: var(--muted);
+  --grey: var(--mpya-gray);
+  --grey-mid: var(--border);
+  --grey-dark: #c7c2ba;
+
+  --cv: var(--mpya-purple);
+  --cv-bg: var(--tag-bg);
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--sans);
+  color: var(--ink);
+  font-size: 14px;
+  background: linear-gradient(135deg, #fdfbfe 0%, #f6ecf5 45%, #eaf5f9 100%);
+}
+
+/* Fixed decorative circle, same treatment as main.html's .page-deco -- a
+   soft brand-gradient glow anchored to the viewport corner, never part of
+   any scrolling content. */
+.page-deco {
+  position: fixed;
+  top: -120px;
+  right: -120px;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--mpya-purple), var(--mpya-blue) 65%, var(--mpya-yellow) 100%);
+  opacity: 0.1;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.app {
+  display: grid;
+  /* --chat-h is set inline by resize.js when the row handle is dragged;
+     the var()'s fallback (260px) is what's used until then. */
+  grid-template-rows: 56px 1fr 6px var(--chat-h, 260px);
+  height: 100vh;
+}
+
+/* ── TOP BAR ── */
+header {
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--grey-mid);
+}
+.logo {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: .02em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--mpya-purple), var(--acc-dark));
+  padding: 6px 14px;
+  border-radius: 4px;
+}
+.logo em { color: #fff; font-style: normal; }
+.subtitle {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--ink-soft);
+  margin-left: 12px;
+}
+.hbtns { display: flex; gap: 8px; margin-left: auto; }
+.hbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid var(--grey-mid);
+  transition: all .15s;
+  background: #fff;
+  color: var(--ink);
+}
+.hbtn:hover { background: var(--bg); border-color: var(--ink-soft); }
+.hbtn:disabled { cursor: default; opacity: .4; }
+.hbtn:disabled:hover { background: #fff; border-color: var(--grey-mid); }
+
+/* ── BOARD LAYOUT ── */
+.boards {
+  display: grid;
+  /* --left-w is set inline by resize.js when the column handle is dragged;
+     the var()'s fallback (340px) is what's used until then. */
+  grid-template-columns: var(--left-w, 340px) 6px 1fr;
+  min-height: 0;
+}
+
+.board-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0; /* let the column shrink below its tags' natural width instead of overflowing */
+}
+
+/* ── RESIZE HANDLES ── */
+.resize-handle {
+  background: var(--grey-mid);
+  position: relative;
+  z-index: 5;
+  transition: background-color .1s;
+}
+.resize-handle:hover, .resize-handle.dragging { background: var(--acc); }
+.resize-v { cursor: col-resize; }
+.resize-h { cursor: row-resize; }
+/* Enlarge the hit area beyond the visible 6px bar without affecting layout. */
+.resize-v::after { content: ""; position: absolute; top: 0; bottom: 0; left: -3px; right: -3px; }
+.resize-h::after { content: ""; position: absolute; left: 0; right: 0; top: -3px; bottom: -3px; }
+
+.board-head {
+  padding: 14px 18px 10px;
+  background: transparent;
+  flex-shrink: 0;
+}
+.board-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.board-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: #fff;
+  border: 1px solid var(--grey-mid);
+  border-radius: 20px;
+  padding: 2px 9px;
+}
+.board-count.full { color: #b03030; border-color: #e0b0b0; background: #fdf1f1; }
+.board-hint {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.board-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px 60px;
+  transition: background-color .12s;
+}
+.board-body.drag-over { background-color: #efe6ee; }
+
+/* Job ad drop/paste zone (left column) -- a textarea + button instead of a
+   tag list, so it overrides .board-body's list-oriented padding/scroll with
+   a simple column layout. */
+#jobAdBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.job-ad-input {
+  flex: 1;
+  min-height: 160px;
+  resize: none;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: #fff;
+  border: 1px dashed var(--grey-mid);
+  border-radius: 8px;
+  padding: 12px;
+  outline: none;
+  transition: border-color .15s;
+}
+.job-ad-input:focus { border-color: var(--acc); border-style: solid; }
+.job-ad-input:disabled { background: var(--bg); color: var(--ink-soft); }
+.jobad-analyze-btn {
+  align-self: flex-start;
+  background: linear-gradient(135deg, var(--mpya-purple), var(--acc-dark));
+  border-color: transparent;
+  color: #fff;
+  font-weight: 700;
+}
+.jobad-analyze-btn:hover:not(:disabled) { opacity: .9; }
+.jobad-analyze-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Dashed "container" box around the CV tag list, matching
+   customer-searcher's .tag-container treatment. */
+.tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px;
+  border: 1px dashed var(--grey-mid);
+  border-radius: 8px;
+}
+
+/* Wraps one group's run of tags (right board only), so a role can opt into
+   the compact several-per-line layout independently of the rest of the
+   board. Default: same one-per-line column the whole board used to be. */
+.group-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.group-tags--wrap {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+/* Every group's own "+" add tile (see addTagButtonEl) gives even a phantom
+   empty group (e.g. Interests with nothing added yet) real content and
+   height on its own, so there's no longer a genuinely empty .group-tags to
+   worry about collapsing to 0 height / having no area to drop a tag into. */
+.tag-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px dashed var(--grey-mid);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: all .12s;
+}
+.tag-add-btn:hover { border-color: var(--acc); color: var(--acc); background: var(--tag-bg); }
+
+/* ── ADD EXPERIENCE — sits below the last experience section's Tools &
+   Skills (see app.js -> addExperienceButtonEl), adding a whole new
+   job-position group (header + one Accomplishment tag + one tool tag) at
+   once. Bolder/full-width and accent-colored, distinct from a group's own
+   plain per-tag "+" tile (.tag-add-btn), since this adds a whole section. */
+.add-experience-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin: 4px 0 2px;
+  background: transparent;
+  border: 1.5px dashed var(--acc);
+  border-radius: 8px;
+  padding: 10px 11px;
+  color: var(--acc);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .12s;
+}
+.add-experience-btn:hover { background: var(--tag-bg); border-style: solid; }
+.group-tags--wrap .tag-add-btn {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+/* In wrap mode tags size to their own text and become pills, matching
+   customer-searcher's short single-word .tag/.industry-tag treatment (a
+   full-sentence CV tag stays a rounded card -- see .tag-cv below -- but a
+   short Skills label like "Python" reads better as a pill). Drop the
+   delete button's permanent reserved gutter too -- padding stays symmetric
+   and compact; the button still overlays on hover (see .tag-actions), just
+   without a dead gap when it's hidden. */
+.group-tags--wrap .tag {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 30px 6px 12px;
+}
+
+/* ── GROUP HEADER (right board) — shared title above a run of same-role
+   tags, styled like customer-searcher's uppercase mini-label. Draggable
+   (right column only) to reorder the whole run; double-click to rename it;
+   the hover-revealed 🗑 button deletes the whole run. ── */
+.group-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--cv);
+  margin-top: 10px;
+  padding: 2px 28px 4px 2px;
+  border-bottom: 1px solid var(--grey-mid);
+  cursor: grab;
+  border-radius: 2px;
+  transition: background-color .12s, opacity .12s;
+}
+.group-header:first-child { margin-top: 0; }
+.group-header:hover { background-color: var(--tag-bg); }
+.group-header:active { cursor: grabbing; }
+.group-header.dragging { opacity: .35; }
+.group-header-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A job position's "Tools & Skills" subsection label (see app.js ->
+   appendGroup) -- deliberately smaller/lighter than .group-header so it
+   reads as nested inside that job's own group, not a new top-level section. */
+.subsection-header {
+  margin: 2px 0 0 2px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+/* Place + time period (see data.js -> ROLE_META), right-aligned on the same
+   line as the group title -- plain spans, not .tag elements, so they're
+   inert: no drag, no click, invisible to computeDropTarget. */
+.group-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.meta-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--ink-soft);
+  background: #fff;
+  border: 1px solid var(--grey-mid);
+  border-radius: 20px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+/* Editable like a tag (double-click) but never removable -- no × button, no
+   "empty commit deletes" affordance, so the hover cue is a plain highlight
+   rather than the tag-actions reveal pattern. */
+.meta-tag:hover { border-color: var(--acc); color: var(--acc); }
+.meta-tag .inline-edit-input {
+  width: auto;
+  min-width: 46px;
+  max-width: 140px;
+  padding: 1px 5px;
+  font-size: 9.5px;
+  border-radius: 12px;
+}
+
+/* ── TAG / CARD ── */
+.tag {
+  border-radius: 8px;
+  padding: 9px 34px 9px 11px;
+  cursor: grab;
+  user-select: none;
+  overflow-wrap: break-word;
+  transition: box-shadow .12s, transform .12s, opacity .12s, background-color .12s;
+  border: 1px solid transparent;
+  position: relative;
+}
+.tag:active { cursor: grabbing; }
+.tag:hover { box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.tag.dragging, .edu-row.dragging { opacity: .35; }
+/* The real dragged element(s), hidden once the browser has captured its own
+   cursor-following drag-ghost image from them (see tagEl/groupHeaderEl) --
+   .drop-placeholder stands in for them at the live-previewed drop slot.
+   .edu-row is included so an Education tag's place/period pills disappear
+   along with it, instead of being left behind floating on their own (see
+   tagRowUnit -- this class is applied to the row, not the .tag inside it). */
+.tag.drag-ghost, .group-header.drag-ghost, .edu-row.drag-ghost { display: none; }
+
+/* One Education entry: its description tag (grows to fill the line) plus
+   its place/period pills hugging the right edge, all on one row (see
+   app.js -> eduRowEl). */
+.edu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.edu-row > .tag {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.edu-row > .group-header-meta {
+  margin-left: 0;
+}
+
+.tag-body { min-width: 0; }
+
+/* ── ACTIONS (delete 🗑; edit moved to double-click) — hover-revealed,
+   borderless transparent buttons matching customer-searcher's
+   .tag-remove/.pin-btn treatment. ── */
+.tag-actions, .group-header-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s;
+}
+.tag:hover .tag-actions, .group-header:hover .group-header-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* Compound selectors here beat the shared rule above on specificity
+   regardless of source order -- the header row is thinner than a tag card,
+   so its action buttons sit higher and a touch smaller. */
+.group-header .group-header-actions { top: 0; right: 0; }
+.group-header .icon-btn { width: 16px; height: 16px; font-size: 10px; }
+.icon-btn {
+  width: 19px;
+  height: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .12s, background-color .12s;
+}
+.delete-btn { font-size: 15px; font-weight: 700; }
+.delete-btn:hover { background: rgba(0,0,0,.08); color: #c0392b; }
+
+/* ── LEVEL STAR — a strong/neutral toggle inline with an Interests tag's
+   text (app.js -> tagEl's hasLevel branch). ── */
+.level-row { display: flex; align-items: center; gap: 5px; }
+.level-toggle {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color .12s, transform .1s;
+}
+.level-toggle:hover { transform: scale(1.15); }
+.level-toggle.strong { color: var(--cv); }
+
+.inline-edit-input {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 13px;
+  border: 1px solid var(--acc);
+  border-radius: 4px;
+  padding: 4px 6px;
+  outline: none;
+  resize: none;
+  background: #fff;
+  color: var(--ink);
+}
+textarea.inline-edit-input { min-height: 44px; line-height: 1.4; }
+
+.tag-cv {
+  background: #fff;
+  border-color: var(--grey-mid);
+}
+.tag-cv .tag-role {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--cv);
+  margin-bottom: 3px;
+}
+.tag-cv .tag-text {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-mid);
+}
+.tag-cv.selected {
+  background: var(--cv-bg);
+  border-color: var(--cv);
+}
+.tag-cv.selected .tag-text { color: var(--ink); }
+
+/* Skills-style short CV tags (wrapped rows) read as a compact pill, same
+   idiom as customer-searcher's short .industry-tag, staying on-brand purple. */
+.group-tags--wrap .tag-cv {
+  background: var(--tag-bg);
+  border-color: transparent;
+}
+.group-tags--wrap .tag-cv:hover { background: var(--tag-bg-hover); }
+.group-tags--wrap .tag-cv.selected {
+  background: var(--cv);
+  border-color: var(--cv);
+}
+.group-tags--wrap .tag-cv.selected .tag-text { color: #fff; }
+
+/* ── DROP PLACEHOLDER — the empty, glowing-border "here's where it'll land"
+   frame shown mid-drag (see updateReorderPreview in app.js). Sized inline
+   per-drag to roughly match what's being dragged; a plain flex child, so it
+   stretches full-width in a one-per-line group or sits inline in a wrapped
+   one (.group-tags--wrap) exactly like a real tag would. ── */
+.drop-placeholder {
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: rgba(155, 24, 137, .06);
+  animation: drop-placeholder-sparkle 1.1s ease-in-out infinite;
+}
+@keyframes drop-placeholder-sparkle {
+  0%, 100% { border-color: var(--accent); box-shadow: 0 0 0 0 rgba(155, 24, 137, .3); }
+  50% { border-color: var(--mpya-blue); box-shadow: 0 0 10px 2px rgba(155, 24, 137, .3); }
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 24px 10px;
+  border: 1px dashed var(--grey-dark);
+  border-radius: 8px;
+}
+
+/* ── CHAT BOX ── */
+.chat-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 2px solid var(--acc);
+  background: #fff;
+}
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--grey-mid);
+  flex-shrink: 0;
+}
+.chat-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.chat-status { font-size: 11px; color: var(--acc); font-weight: 700; }
+.bridge-stop-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-color: #c0392b;
+  color: #c0392b;
+}
+.bridge-stop-btn:hover { background: #c0392b; border-color: #c0392b; color: #fff; }
+
+/* ── CV NEXT-STEP REMINDERS — a row of shortcut prompts pinned above the
+   chat log (see reminders.js), each a canned request grounded in one part
+   of the super-cv-assistant skill. Small wrapped pills, same family as a
+   short .tag but button-styled like .hbtn since these trigger an action
+   rather than represent CV content. ── */
+.chat-reminders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--grey-mid);
+  flex-shrink: 0;
+}
+.reminder-chip {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cv);
+  background: #fff;
+  border: 1px solid var(--grey-mid);
+  border-radius: 20px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: border-color .12s, color .12s, opacity .12s;
+}
+.reminder-chip:hover { border-color: var(--acc); color: var(--acc); }
+.reminder-chip:disabled { cursor: default; opacity: .5; }
+
+.chat-messages {
+  flex: 1;
+  /* A flex child's default min-height is auto (its content's natural size),
+     which silently overrides `flex: 1` and lets this grow past .chat-col's
+     fixed height instead of scrolling internally -- min-height: 0 is what
+     actually lets the overflow (and this rule's own overflow-y) kick in. */
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* A visible, always-there scrollbar (not just an on-hover overlay one) so
+   a long chat log or question round reads as scrollable at a glance. */
+.chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: var(--grey-mid) transparent;
+}
+.chat-messages::-webkit-scrollbar { width: 8px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb {
+  background: var(--grey-mid);
+  border-radius: 4px;
+}
+.chat-messages::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
+
+.msg {
+  max-width: 68%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.msg.bot {
+  align-self: flex-start;
+  background: var(--bg);
+  color: var(--ink);
+  border-bottom-left-radius: 2px;
+}
+.msg.user {
+  align-self: flex-end;
+  background: var(--acc);
+  color: #fff;
+  border-bottom-right-radius: 2px;
+}
+
+/* ── QUESTION PANEL — a batch of requirement questions rendered as a tab
+   widget (one tab per question), the same shape as this VSCode plugin's own
+   AskUserQuestion: free navigation between tabs (including already-answered
+   ones, to change an answer), a plain option auto-advances, "Other" gets
+   its own inline text box. Appended into #chatMessages like any other
+   message, but full-width and self-contained. ── */
+.qpanel {
+  align-self: stretch;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid var(--grey-mid);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.qpanel.submitted { opacity: .85; }
+.qpanel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--grey-mid);
+}
+.qpanel-tab {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--grey-dark);
+  background: #fff;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .12s;
+}
+.qpanel-tab:hover { border-color: var(--acc); color: var(--acc); }
+.qpanel-tab.answered { background: var(--cv-bg); border-color: var(--cv); color: var(--cv); }
+.qpanel-tab.active { background: var(--acc); border-color: var(--acc); color: #fff; }
+.qpanel-body { padding: 14px 16px; }
+.qpanel-progress { font-size: 10.5px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.qpanel-requirement {
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--cv);
+  background: var(--tag-bg);
+  border-left: 3px solid var(--cv);
+  padding: 6px 10px;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 10px;
+}
+.qpanel-question { font-size: 13px; line-height: 1.5; color: var(--ink); margin-bottom: 12px; }
+.qpanel-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qpanel-opt {
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--grey-mid);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .12s;
+}
+.qpanel-opt:hover:not(:disabled) { border-color: var(--acc); background: var(--tag-bg); }
+.qpanel-opt:disabled { cursor: default; opacity: .6; }
+.qpanel-opt.chosen { background: var(--acc); border-color: var(--acc); color: #fff; }
+.qpanel-extra:empty { display: none; }
+.qpanel-hint { font-size: 11.5px; color: var(--ink-soft); margin: 10px 0 6px; }
+.qpanel-input {
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--grey-dark);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color .15s;
+}
+.qpanel-input:focus { border-color: var(--acc); }
+.qpanel-input:disabled { background: var(--bg); color: var(--ink-soft); }
+.qpanel-error { font-size: 11px; color: #c0392b; margin-top: 4px; min-height: 1.2em; }
+
+.chat-inputrow {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--grey-mid);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+#chatInput {
+  flex: 1;
+  background: #fff;
+  border: 1px solid var(--grey-dark);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-family: var(--sans);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s;
+}
+#chatInput:focus { border-color: var(--acc); }
+#chatInput:disabled { background: #ececea; color: var(--ink-soft); }
+.hbtn-send {
+  background: linear-gradient(135deg, var(--mpya-purple), var(--acc-dark));
+  border-color: transparent;
+  color: #fff;
+  border-radius: 20px;
+}
+.hbtn-send:hover { opacity: .9; }

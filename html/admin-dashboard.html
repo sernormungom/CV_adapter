@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin – Mpya</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;--grey-dark:#ccc8c0;--grey-mid:#d8d4cc;--sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;--green:#2a7a3b;--red:#b71c1c}
+html,body{min-height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+header{background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--serif);font-size:17px;color:#fff;background:var(--acc);padding:5px 14px;border-radius:2px;letter-spacing:.03em}
+.hgroup{display:flex;align-items:center;gap:14px}
+.whoami{font-size:12px;color:#bbb}
+.hbtn{padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;background:transparent;border:1px solid #555;color:#ccc}
+.hbtn:hover{background:#333;border-color:#888;color:#fff}
+main{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+h1{font-family:var(--serif);font-size:24px;margin-bottom:6px}
+.lead{color:var(--ink-mid);margin-bottom:24px}
+.card{background:#f4f3f1;border:1px solid var(--grey-dark);border-radius:3px;padding:22px 24px;margin-bottom:20px}
+.card h2{font-family:var(--serif);font-size:17px;margin-bottom:16px}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.field{flex:1;min-width:160px}
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-mid);margin:0 0 5px}
+input,select{width:100%;padding:9px 11px;font-family:var(--sans);font-size:14px;border:1px solid var(--grey-dark);border-radius:2px;background:#fff}
+input:focus,select:focus{outline:none;border-color:var(--acc)}
+button.primary{margin-top:18px;padding:10px 20px;font-family:var(--sans);font-size:14px;font-weight:600;color:#fff;background:var(--acc);border:none;border-radius:2px;cursor:pointer}
+button.primary:hover{background:#6e1860}
+.result{display:none;margin-top:18px;padding:12px 14px;font-size:13px;border-radius:2px}
+.result.show{display:block}
+.result.ok{background:#e8f5e9;border:1px solid #c8e6c9;color:#1b5e20}
+.result.err{background:#ffebee;border:1px solid #ffcdd2;color:var(--red)}
+.invite{margin-top:8px;font-family:monospace;font-size:12px;word-break:break-all;background:#fff;border:1px solid var(--grey-mid);padding:8px;border-radius:2px}
+.tlist{display:flex;flex-direction:column;gap:8px}
+.trow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;background:#fff;border:1px solid var(--grey-mid);border-radius:2px;font-size:13px}
+.trow .name{font-weight:600}
+.trow .meta{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.tmuted{color:var(--ink-soft);font-size:13px;padding:8px 0}
+.tpill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px}
+.tpill.on{background:#c8e6c9;color:#1b5e20}.tpill.off{background:#e8dada;color:#8a3a3a}
+.tmini{font-size:11px;font-weight:600;padding:4px 9px;border-radius:2px;border:1px solid var(--grey-dark);background:#fff;cursor:pointer;color:var(--ink-mid)}
+.tmini:hover{border-color:var(--red);color:var(--red)}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">MPYA Admin</span>
+  <div class="hgroup">
+    <span class="whoami" id="whoami"></span>
+    <button class="hbtn" onclick="logout()">Sign out</button>
+  </div>
+</header>
+<main>
+  <h1>Administration</h1>
+  <div class="lead">Provision Talent Advisors and other accounts. New users receive an invite link to set their password.</div>
+
+  <div class="card">
+    <h2>Provision a user</h2>
+    <form id="provForm">
+      <div class="row">
+        <div class="field"><label>Email</label><input id="email" type="email" required></div>
+        <div class="field"><label>Role</label>
+          <select id="role">
+            <option value="ta">Talent Advisor</option>
+            <option value="consultant">Consultant</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Full name (optional)</label><input id="full_name" type="text"></div>
+        <div class="field"><label for="site">Home Site</label><select id="site"></select></div>
+        <div class="field"><label>City (TAs)</label><input id="city" type="text" placeholder="Stockholm / Malmö / Göteborg"></div>
+      </div>
+      <button class="primary" type="submit">Create &amp; generate invite</button>
+      <div class="result" id="result"></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>View as consultant</h2>
+    <div class="lead" style="margin-bottom:16px">Open the consultant-facing pages with a chosen consultant's data — your own profile, or any consultant's, for testing.</div>
+    <div class="row">
+      <div class="field" style="flex:2">
+        <label>Consultant</label>
+        <select id="viewAs"><option value="">Loading…</option></select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="primary" type="button" id="openJobs" style="margin-top:0">Open jobs</button>
+      <button class="primary" type="button" id="openCv" style="margin-top:0;background:var(--ink-mid)">Open CV editor</button>
+    </div>
+  </div>
+
+
+</main>
+
+<script src="/html/auth-guard.js"></script>
+<script>
+fetch('/api/auth/sites', {credentials:'same-origin'}).then(r => { if (!r.ok) throw new Error('Could not load Sites'); return r.json(); }).then(data => {
+  const select = document.getElementById('site');
+  data.sites.forEach(site => { const option = document.createElement('option'); option.value = site.id; option.textContent = site.code; select.appendChild(option); });
+}).catch(() => {});
+</script>
+<script>
+let me = null;
+(async () => {
+  me = await requireAuth(['admin']);
+  document.getElementById('whoami').textContent = me.username + ' · admin';
+  loadViewAs();
+})();
+
+// ── View-as selector ────────────────────────────────────────────────────
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function loadViewAs() {
+  const sel = document.getElementById('viewAs');
+  // First option is always the admin's own data folder (keyed by username).
+  const opts = ['<option value="' + esc(me.username) + '">' + esc(me.username) + ' (me)</option>'];
+  try {
+    const r = await fetch('/api/auth/consultants', { credentials: 'same-origin' });
+    if (r.ok) {
+      for (const c of await r.json()) {
+        if (c.username === me.username) continue;
+        const label = (c.full_name ? c.full_name + ' — ' : '') + c.username + (c.city ? ' (' + c.city + ')' : '');
+        opts.push('<option value="' + esc(c.username) + '">' + esc(label) + '</option>');
+      }
+    }
+  } catch (_) { /* still offer "me" if the list fails */ }
+  sel.innerHTML = opts.join('');
+}
+
+function openAs(page) {
+  const u = document.getElementById('viewAs').value;
+  if (!u) return;
+  window.location.href = page + '?consultant_id=' + encodeURIComponent(u);
+}
+document.getElementById('openJobs').addEventListener('click', () => openAs('/html/jobs.html'));
+document.getElementById('openCv').addEventListener('click', () => openAs('/html/cv-importer.html'));
+
+const result = document.getElementById('result');
+document.getElementById('provForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  result.className = 'result';
+  const payload = {
+    email: document.getElementById('email').value,
+    role: document.getElementById('role').value,
+    full_name: document.getElementById('full_name').value || null,
+    city: document.getElementById('city').value || null,
+    site_id: document.getElementById('site').value,
+  };
+  const r = await fetch('/api/auth/users', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    credentials: 'same-origin', body: JSON.stringify(payload),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    result.className = 'result show err';
+    result.textContent = data.detail || 'Could not create user.';
+    return;
+  }
+  result.className = 'result show ok';
+  result.innerHTML = 'Created <strong>' + data.user.username + '</strong> (' +
+    (data.user.roles || []).join(' + ') +
+    '). Send them this invite link:<div class="invite">' + data.invite_url + '</div>';
+  e.target.reset();
+});
+</script>
+</body>
+</html>

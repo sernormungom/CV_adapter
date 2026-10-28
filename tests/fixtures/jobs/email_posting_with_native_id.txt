@@ -1,0 +1,73 @@
+--------------------------------------------------------------------------------
+
+Från: Example Broker <assignments@example-broker.invalid>
+Skickat: måndag 13 juli 2026 10:43:12 (UTC+01:00) Amsterdam, Berlin, Bern, Rome,
+Stockholm, Vienna
+Till: Example Recipient <recipient@example.invalid>
+Ämne: Example Client AB - New Job Posting submitted EXJP00042625 SE_Embedded
+Software Application Engineer_Associate
+
+
+
+Details
+Job Posting ID:   EXJP00042625
+Job Posting Title:   SE_Embedded Software Application Engineer_Associate
+Description:
+
+The assignment covers feature development for an embedded control unit: breaking
+down written requirements, designing and implementing the software, and running
+the verification needed to close each requirement. The consultant is expected to
+pick one technical domain and go deep in it rather than spread across all of
+them.
+
+Associate level. Roughly nought to two years of relevant working experience is
+enough for this posting.
+
+Example Client AB is an equal opportunity employer. Applications are welcome
+regardless of age, ethnicity, gender or cultural background.
+
+Job Posting Start Date:   2026-08-24
+Job Posting End Date:   2026-12-31
+Location:   Göteborg
+Legal Entity:  Example Client Subsidiary AB
+Job Family: Elect. & Electr. Embedded Softw. Eng.
+Price: 447 kr/h
+
+
+--------------------------------------------------------------------------------
+
+NOTE - Maximum 1 offer per assignment!
+Please respond to assignments@example-broker.invalid with CV in English and the
+following information:
+
+Job posting ID:
+(EXJP000XXXXX)
+First name:
+
+Last name:
+
+Availability:
+(yyyy-mm-dd)
+Date of birth:
+(yyyy-mm-dd)
+Place of birth:
+(City)
+How many years of relevant work experience does the candidate have?
+
+Previous assignment experience with the client:
+(Yes/No)
+Price/h (SEK)
+
+Shorter description of how the consultant matches the requirements in the job
+posting:
+
+
+
+
+
+
+--------------------------------------------------------------------------------
+
+Unsubscribe / Change Profile [https://links.example.invalid/unsubscribe-token]
+
+[https://links.example.invalid/footer.gif]

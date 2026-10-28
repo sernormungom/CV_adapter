@@ -1,0 +1,96 @@
+name: build-and-push
+
+# Builds the ARM64 image and pushes to ECR via GitHub OIDC (no static keys).
+# Terraform provisions the ECR repo + the role this assumes (github_ci_role_arn).
+#
+# V2 M1 (gap G-037) fixed three faults here:
+#
+#  1. No tests ran before the push. The image was built and shipped whether or
+#     not anything worked. The `gates` job below now calls ci.yml and `build`
+#     declares `needs: gates`, so a failing gate skips the build entirely —
+#     there is no path to `push: true` past a red gate.
+#  2. The trigger excluded HTML/JS/CSS and Alembic changes. The Dockerfile does
+#     `COPY . .`, so those *are* in the image: an HTML-only fix was never built
+#     or deployed. See the paths list below.
+#  3. The self-reference named `build-and-push.yml`, which is not this file's
+#     name, so editing this workflow did not trigger it.
+
+on:
+  workflow_dispatch:   # manual trigger from the Actions tab / gh CLI
+  push:
+    branches: [main]
+    # Everything that ends up in the image or changes how it is built or
+    # verified. The Dockerfile is `COPY . .`, so keep this generous — a missed
+    # trigger means the deployed image silently lacks a merged fix, which is
+    # far worse than a redundant build. Documentation-only commits are the
+    # deliberate omission.
+    paths:
+      - "**.py"
+      - "**.html"
+      - "**.js"
+      - "**.css"
+      - "alembic/**"
+      - "alembic.ini"
+      - "templates/**"
+      - "backend/**"
+      - "shared/**"
+      - "html/**"
+      - "scripts/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - "pytest.ini"
+      - "conftest.py"
+      - ".github/workflows/build-push.yml"
+      - ".github/workflows/ci.yml"
+
+permissions:
+  id-token: write   # required for OIDC
+  contents: read
+
+jobs:
+  # Run the exact same gate definitions CI runs. Reused rather than copied, so
+  # the pre-push gate cannot drift away from the pull-request gate.
+  gates:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    runs-on: ubuntu-latest
+    needs: gates      # a red gate means this job never starts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}  # = output github_ci_role_arn
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build for ARM64 to match the Graviton Fargate task definitions.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # NOTE on scheduled-task deploys:
+      # EventBridge Scheduler targets the revision-less task-def ARN, so it always
+      # runs the latest ACTIVE revision. To roll out a new image you register a new
+      # task-def revision pointing at :${{ github.sha }}. Keep image-tag handling in
+      # ONE place (Terraform var OR CI) to avoid the revision-drift documented in
+      # the README — don't let both register revisions.

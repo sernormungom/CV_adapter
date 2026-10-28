@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in – Mpya</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;--grey-dark:#ccc8c0;--sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;--red:#b71c1c}
+html,body{height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+.wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#f4f3f1;border:1px solid var(--grey-dark);border-radius:3px;width:100%;max-width:380px;padding:32px 30px;box-shadow:0 8px 30px rgba(0,0,0,.15)}
+.logo{font-family:var(--serif);font-size:18px;color:#fff;background:var(--acc);padding:6px 14px;border-radius:2px;display:inline-block;letter-spacing:.03em}
+h1{font-family:var(--serif);font-size:22px;margin:22px 0 4px}
+.sub{color:var(--ink-soft);font-size:13px;margin-bottom:22px}
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-mid);margin:14px 0 5px}
+input{width:100%;padding:10px 12px;font-family:var(--sans);font-size:14px;border:1px solid var(--grey-dark);border-radius:2px;background:#fff}
+input:focus{outline:none;border-color:var(--acc)}
+button{width:100%;margin-top:22px;padding:11px;font-family:var(--sans);font-size:14px;font-weight:600;color:#fff;background:var(--acc);border:none;border-radius:2px;cursor:pointer;transition:background .15s}
+button:hover{background:#6e1860}
+button:disabled{opacity:.5;cursor:not-allowed}
+.err{display:none;margin-top:16px;padding:9px 12px;font-size:13px;color:var(--red);background:#ffebee;border:1px solid #ffcdd2;border-radius:2px}
+.err.show{display:block}
+.privacy-note{margin-top:16px;font-size:11px;line-height:1.5;color:var(--ink-soft);text-align:center}
+.privacy-note a{color:var(--acc);text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <form class="card" id="loginForm" autocomplete="on">
+    <span class="logo">MPYA Sign in</span>
+    <h1>Sign in</h1>
+    <div class="sub">Consultant Opportunity Platform</div>
+
+    <label for="identifier">Username or email</label>
+    <input id="identifier" name="identifier" type="text" autocomplete="username" required autofocus>
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+    <button type="submit" id="submitBtn">Sign in</button>
+    <div class="err" id="err"></div>
+    <div class="privacy-note">Your data is processed as described in our <a href="/privacy" target="_blank" rel="noopener">privacy notice</a>.</div>
+  </form>
+</div>
+
+<script>
+const form = document.getElementById('loginForm');
+const errEl = document.getElementById('err');
+const btn = document.getElementById('submitBtn');
+
+/* Fallback only — the server sends `landing`. Reads the multi-role `roles`
+   list (V2 Step 1), not a single role. */
+function landingFor(user){
+  const roles = (user && Array.isArray(user.roles)) ? user.roles : [];
+  if(roles.includes('admin')) return '/html/admin-dashboard.html';
+  if(roles.includes('ta')) return '/html/consultants.html';
+  return '/html/cv-importer.html';
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errEl.classList.remove('show');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        identifier: document.getElementById('identifier').value,
+        password: document.getElementById('password').value,
+      }),
+    });
+    if (!r.ok) {
+      errEl.textContent = r.status === 401 ? 'Invalid username or password.' : 'Sign-in failed. Please try again.';
+      errEl.classList.add('show');
+      btn.disabled = false; btn.textContent = 'Sign in';
+      return;
+    }
+    const data = await r.json();
+    window.location.href = data.landing || landingFor(data.user);
+  } catch (_) {
+    errEl.textContent = 'Could not reach the server.';
+    errEl.classList.add('show');
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+});
+</script>
+</body>
+</html>

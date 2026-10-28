@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CV Tag Matcher — prototype</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="page-deco"></div>
+<div class="app">
+
+  <header>
+    <div class="logo">CV<em>craft</em></div>
+    <span class="subtitle">Tag Matcher — prototype</span>
+    <div class="hbtns">
+      <button class="hbtn" id="undoBtn" title="Undo the last change">↶ Undo</button>
+      <button class="hbtn" id="redoBtn" title="Redo the last undone change">↷ Redo</button>
+      <button class="hbtn" id="resetBtn" title="Restore the original sample tags">↺ Reset</button>
+      <button class="hbtn" id="closeBtn" title="Close this tab">✕ Close</button>
+    </div>
+  </header>
+
+  <div class="boards">
+
+    <!-- LEFT: job ad drop zone -->
+    <section class="board-col">
+      <div class="board-head">
+        <div class="board-title">Drop job ad here</div>
+        <div class="board-hint">Paste (Ctrl+V) or drag in the full text of a job posting, then hit Analyze — dropping it in starts automatically. This saves it for Claude to review; tell Claude Code in your chat session to forward it.</div>
+      </div>
+      <div class="board-body" id="jobAdBody">
+        <textarea id="jobAdInput" class="job-ad-input" placeholder="Paste a job ad here, or drag in text selected from another page…"></textarea>
+        <button type="button" id="jobAdAnalyzeBtn" class="hbtn jobad-analyze-btn">Analyze job ad</button>
+      </div>
+    </section>
+
+    <div class="resize-handle resize-v" id="colResizer" title="Drag to resize columns"></div>
+
+    <!-- RIGHT: super CV board (scrollable) -->
+    <section class="board-col">
+      <div class="board-head">
+        <div class="board-title">
+          Super CV
+          <span class="board-count" id="rightCount">0 lines</span>
+        </div>
+        <div class="board-hint">Drag a tag or a group title to reorder · double-click to edit · hover for × delete</div>
+      </div>
+      <div class="board-body" id="rightBody">
+        <div class="tag-list" id="rightList"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="resize-handle resize-h" id="rowResizer" title="Drag to resize the chat box"></div>
+
+  <!-- CHAT BOX: the per-question UX lives in chat.js; the questions
+       themselves come from bridge.js, which relays a dropped/pasted job ad
+       to a real Claude Code session via bridge_server.py (see README.md →
+       "Claude bridge"). -->
+  <section class="chat-col">
+    <div class="chat-head">
+      <span class="chat-title">💬 CV Assistant</span>
+      <span class="chat-status" id="chatStatus"></span>
+      <button type="button" id="bridgeStopBtn" class="hbtn bridge-stop-btn" title="Stop this job-ad review">⏹ Stop</button>
+    </div>
+    <div class="chat-reminders" id="chatReminders"></div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-inputrow">
+      <input type="text" id="chatInput" placeholder="Type a message…" autocomplete="off">
+      <button class="hbtn hbtn-send" id="chatSendBtn">Send</button>
+    </div>
+  </section>
+
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="chat.js"></script>
+<script src="reminders.js"></script>
+<script src="bridge.js"></script>
+<script src="resize.js"></script>
+</body>
+</html>

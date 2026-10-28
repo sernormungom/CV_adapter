@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consultants – Mpya</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;--grey-dark:#ccc8c0;--grey-mid:#d8d4cc;--sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;--green:#2a7a3b;--red:#b71c1c}
+html,body{min-height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+header{background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--serif);font-size:17px;color:#fff;background:var(--acc);padding:5px 14px;border-radius:2px;letter-spacing:.03em}
+.hgroup{display:flex;align-items:center;gap:14px}
+.whoami{font-size:12px;color:#bbb}
+.hbtn{padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;background:transparent;border:1px solid #555;color:#ccc;text-decoration:none}
+.hbtn:hover{background:#333;border-color:#888;color:#fff}
+main{max-width:960px;margin:0 auto;padding:28px 20px 60px}
+h1{font-family:var(--serif);font-size:24px;margin-bottom:6px}
+.lead{color:var(--ink-mid);margin-bottom:24px}
+.card{background:#f4f3f1;border:1px solid var(--grey-dark);border-radius:3px;padding:20px 22px;margin-bottom:20px}
+.card h2{font-family:var(--serif);font-size:17px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;background:#fff;border:1px solid var(--grey-mid);border-radius:2px;font-size:13px}
+.item .name{font-weight:600}
+.item .meta{font-size:11px;color:var(--ink-soft)}
+.muted{color:var(--ink-soft);font-size:13px;padding:8px 0}
+.pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px}
+.pill.on{background:#c8e6c9;color:#1b5e20}.pill.off{background:#e0ddd6;color:#777}
+.mini{font-size:11px;font-weight:600;padding:4px 9px;border-radius:2px;border:1px solid var(--grey-dark);background:#fff;cursor:pointer;color:var(--ink-mid)}
+.mini:hover{border-color:var(--acc);color:var(--acc)}
+.mini.danger:hover{border-color:var(--red);color:var(--red)}
+a.open{font-size:11px;font-weight:600;color:var(--acc);text-decoration:none}
+a.open:hover{text-decoration:underline}
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-mid);margin:10px 0 4px}
+input,select{width:100%;padding:8px 10px;font-family:var(--sans);font-size:13px;border:1px solid var(--grey-dark);border-radius:2px;background:#fff}
+input:focus,select:focus{outline:none;border-color:var(--acc)}
+.frow{display:flex;gap:10px}.frow .field{flex:1}
+button.primary{margin-top:14px;padding:9px 16px;font-size:13px;font-weight:600;color:#fff;background:var(--acc);border:none;border-radius:2px;cursor:pointer}
+button.primary:hover{background:#6e1860}
+.result{display:none;margin-top:12px;padding:10px 12px;font-size:12px;border-radius:2px}
+.result.show{display:block}.result.ok{background:#e8f5e9;border:1px solid #c8e6c9;color:#1b5e20}.result.err{background:#ffebee;border:1px solid #ffcdd2;color:var(--red)}
+.invite{margin-top:6px;font-family:monospace;font-size:11px;word-break:break-all;background:#fff;border:1px solid var(--grey-mid);padding:6px;border-radius:2px}
+/* Notification inbox */
+.inbox{margin-bottom:24px}
+.inbox .list{max-height:340px;overflow-y:auto;margin-bottom:0}
+.badge{font-size:11px;font-weight:600;background:var(--acc);color:#fff;border-radius:10px;padding:1px 8px;margin-left:8px}
+.badge.zero{background:var(--grey-mid);color:#777}
+.ni{display:flex;align-items:flex-start;gap:11px;padding:11px 12px;background:#fff;border:1px solid var(--grey-mid);border-radius:2px;font-size:13px;cursor:pointer}
+.ni.unread{border-left:3px solid var(--acc);background:#fbf6fa}
+.ni .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--grey-mid);margin-top:5px}
+.ni.unread .dot{background:var(--acc)}
+.ni .body{flex:1;min-width:0}
+.ni .title{font-weight:600}
+.ni.unread .title{color:var(--ink)}
+.ni:not(.unread) .title{color:var(--ink-mid);font-weight:400}
+.ni .sub{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.ntype{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:2px;margin-right:6px;background:#e8e4dc;color:#6b6b6b;vertical-align:middle}
+.ntype.match_found{background:#e3f0e5;color:#1b5e20}
+.ntype.cv_viewed{background:#e3eaf5;color:#1a4480}
+.ntype.cv_ready{background:#f3e9f1;color:var(--acc)}
+.ntype.position_accepted{background:#fff3e0;color:#9a5b00}
+.ntype.collection_complete{background:#e3eaf5;color:#1a4480}
+.ni .when{flex:none;font-size:11px;color:var(--ink-soft);white-space:nowrap}
+button.primary:disabled{background:var(--grey-mid);cursor:default}
+.mini:disabled{opacity:.5;cursor:default}
+.mini:disabled:hover{border-color:var(--grey-dark);color:var(--ink-mid)}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">MPYA Consultants</span>
+  <!-- V3-P-003 role-specific top-banner navigation (S6). -->
+  <nav id="topNav" style="display:flex;gap:8px;margin-left:auto;margin-right:14px"></nav>
+  <div class="hgroup">
+    <span class="whoami" id="whoami"></span>
+    <button class="hbtn" onclick="logout()">Sign out</button>
+  </div>
+</header>
+<main>
+  <h1>Consultants</h1>
+  <div class="lead" id="lead">Manage your consultants and jump into their Jobs, Applications, Base CV or Published CVs.</div>
+
+  <!-- Notifications -->
+  <div class="card inbox">
+    <h2>
+      <span>Notifications <span class="badge zero" id="nBadge">0</span></span>
+      <button class="mini" id="markAllBtn">Mark all read</button>
+    </h2>
+    <div class="list" id="notifList"><div class="muted">Loading…</div></div>
+  </div>
+
+  <!-- Consultants -->
+  <div class="card">
+    <h2>My consultants</h2>
+    <div class="list" id="consultantList"><div class="muted">Loading…</div></div>
+    <label>+ Consultant (email)</label>
+    <div class="frow">
+      <div class="field"><input id="cEmail" type="email" placeholder="consultant@example.com"></div>
+      <button class="primary" id="addConsultantBtn" style="margin-top:0">Invite</button>
+    </div>
+    <div class="result" id="cResult"></div>
+  </div>
+
+</main>
+
+<script src="/html/auth-guard.js"></script>
+<script>
+let me = null;
+
+/* Exposed so tests can await the page's own init deterministically, the same
+   convention html/cv-importer.html uses for window.__identityReady. */
+window.__initReady = (async () => {
+  me = await requireAuth(['ta','admin']);
+  // Show every role held, so an Admin+Consultant reads as both (P-004).
+  document.getElementById('whoami').textContent =
+    me.username + ' · ' + (me.roles || []).join(' + ') + (me.city ? ' · ' + me.city : '');
+  // A Consultant selected on another surface (Jobs, Applications, Published
+  // CVs) carries forward as `?consultant_id=` so the round trip back does not
+  // lose it — but only once GET /api/me/consultants confirms it is still one
+  // this caller may act for; an invalid or unresolvable one is dropped rather
+  // than forwarded.
+  const wanted = new URLSearchParams(location.search).get('consultant_id') || '';
+  const resolved = await resolveConsultantContext(wanted);
+  renderTopNav(document.getElementById('topNav'), me, 'Consultants', resolved.consultant);
+  // Consultants first so the notifications card can key off a populated list.
+  await loadConsultants();
+  await loadNotifications();
+  // Refresh the inbox periodically so a new match/view surfaces without a
+  // reload. Jobs/Applications/Published CVs each live on their own page now.
+  setInterval(loadNotifications, 30000);
+})();
+
+function setResult(el, kind, html){ el.className = 'result show ' + kind; el.innerHTML = html; }
+
+// ── Notifications ──
+const NTYPE_LABEL = {match_found:'Match', cv_viewed:'CV viewed', cv_ready:'CV ready', position_accepted:'Accepted', config_hold:'Config hold', collection_complete:'Jobs collected'};
+
+function relTime(iso){
+  if(!iso) return '';
+  const then = new Date(iso), now = new Date(), s = Math.max(0, (now - then) / 1000);
+  if(s < 60) return 'just now';
+  if(s < 3600) return Math.floor(s/60) + 'm ago';
+  if(s < 86400) return Math.floor(s/3600) + 'h ago';
+  if(s < 604800) return Math.floor(s/86400) + 'd ago';
+  return then.toLocaleDateString();
+}
+
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function loadNotifications(){
+  const box = document.getElementById('notifList'), badge = document.getElementById('nBadge');
+  let data;
+  try{
+    const r = await fetch('/api/notifications?limit=50', {credentials:'same-origin'});
+    if(!r.ok){ box.innerHTML = '<div class="muted">Could not load.</div>'; return; }
+    data = await r.json();
+  }catch(e){ box.innerHTML = '<div class="muted">Could not load.</div>'; return; }
+
+  badge.textContent = data.unread;
+  badge.className = 'badge' + (data.unread ? '' : ' zero');
+
+  if(!data.notifications.length){ box.innerHTML = '<div class="muted">No notifications yet.</div>'; return; }
+  box.innerHTML = data.notifications.map(n => {
+    const label = NTYPE_LABEL[n.type] || n.type;
+    const sub = [n.consultant_username, n.body].filter(Boolean).map(esc).join(' · ');
+    return '<div class="ni '+(n.read?'':'unread')+'" data-id="'+n.id+'">'+
+      '<span class="dot"></span>'+
+      '<div class="body">'+
+        '<div class="title"><span class="ntype '+esc(n.type)+'">'+esc(label)+'</span>'+esc(n.title)+'</div>'+
+        (sub ? '<div class="sub">'+sub+'</div>' : '')+
+      '</div>'+
+      '<span class="when">'+relTime(n.created_at)+'</span>'+
+    '</div>';
+  }).join('');
+
+  box.querySelectorAll('.ni.unread').forEach(el => {
+    el.addEventListener('click', () => markRead(el.dataset.id, el));
+  });
+}
+
+async function markRead(id, el){
+  el.classList.remove('unread');
+  try{ await fetch('/api/notifications/'+id+'/read', {method:'POST', credentials:'same-origin'}); }catch(e){}
+  loadNotifications();
+}
+
+document.getElementById('markAllBtn').addEventListener('click', async () => {
+  try{ await fetch('/api/notifications/read-all', {method:'POST', credentials:'same-origin'}); }catch(e){}
+  loadNotifications();
+});
+
+// ── Consultants ──
+
+async function loadConsultants(){
+  const box = document.getElementById('consultantList');
+  const r = await fetch('/api/ta/consultants', {credentials:'same-origin'});
+  if(!r.ok){ box.innerHTML = '<div class="muted">Could not load.</div>'; return; }
+  const data = await r.json();
+  if(!data.consultants.length){ box.innerHTML = '<div class="muted">No consultants yet.</div>'; return; }
+  box.innerHTML = data.consultants.map(c =>
+    '<div class="item"><div><div class="name">'+esc(c.full_name||c.username)+'</div>'+
+    '<div class="meta">'+esc(c.email)+(c.city?' · '+esc(c.city):'')+'</div></div>'+
+    '<div style="display:flex;gap:8px;align-items:center">'+
+      '<button class="mini pill '+(c.actively_looking?'on':'off')+'" data-looking="'+esc(c.username)+'" data-state="'+(c.actively_looking?'1':'0')+'" title="Whether this consultant is actively job-seeking right now">'+(c.actively_looking?'Looking':'Paused')+'</button>'+
+      '<a class="open" href="/html/jobs.html?consultant_id='+encodeURIComponent(c.username)+'">Jobs →</a>'+
+      '<a class="open" href="/html/applications.html?consultant_id='+encodeURIComponent(c.username)+'">Applications →</a>'+
+      '<a class="open" href="/html/cv-importer.html?consultant_id='+encodeURIComponent(c.username)+'">Base CV →</a>'+
+      '<a class="open" href="/html/published-cvs.html?consultant_id='+encodeURIComponent(c.username)+'">Published CVs →</a>'+
+      '<button class="mini danger" data-username="'+esc(c.username)+'" data-name="'+esc(c.full_name||c.username)+'">Remove</button>'+
+    '</div></div>'
+  ).join('');
+
+  box.querySelectorAll('button[data-username]').forEach(btn => {
+    btn.addEventListener('click', () => removeConsultant(btn.dataset.username, btn.dataset.name));
+  });
+  box.querySelectorAll('button[data-looking]').forEach(btn => {
+    btn.addEventListener('click', () => toggleLooking(btn.dataset.looking, btn.dataset.state === '1'));
+  });
+}
+
+async function toggleLooking(username, currentlyLooking){
+  const r = await fetch('/api/ta/consultants/'+encodeURIComponent(username)+'/looking', {
+    method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
+    body: JSON.stringify({actively_looking: !currentlyLooking}),
+  });
+  if(!r.ok){ setResult(document.getElementById('cResult'),'err','Could not update.'); return; }
+  loadConsultants();
+}
+
+async function removeConsultant(username, name){
+  if(!confirm('Remove '+name+' from your list? Their account stays — they just won’t appear here or be scanned for matches.')) return;
+  const r = await fetch('/api/ta/consultants/'+encodeURIComponent(username), {method:'DELETE', credentials:'same-origin'});
+  if(!r.ok){ const d = await r.json().catch(()=>({})); setResult(document.getElementById('cResult'),'err', d.detail || 'Could not remove.'); return; }
+  loadConsultants();
+}
+
+document.getElementById('addConsultantBtn').addEventListener('click', async () => {
+  const email = document.getElementById('cEmail').value.trim();
+  const res = document.getElementById('cResult');
+  if(!email){ return; }
+  const r = await fetch('/api/ta/consultants', {
+    method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
+    body: JSON.stringify({email}),
+  });
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok){ setResult(res,'err', data.detail || 'Could not add consultant.'); return; }
+  if(data.mode === 'invited'){
+    setResult(res,'ok','Invited <strong>'+esc(data.username)+'</strong> — send them this link to set a password:<div class="invite">'+esc(data.invite_url)+'</div>');
+  } else if(data.already){
+    setResult(res,'ok','<strong>'+esc(data.username)+'</strong> is already on your list.');
+  } else {
+    setResult(res,'ok','Added <strong>'+esc(data.username)+'</strong> to your list.');
+  }
+  document.getElementById('cEmail').value='';
+  loadConsultants();
+});
+</script>
+</body>
+</html>

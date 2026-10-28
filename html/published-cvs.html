@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Published CVs – Mpya</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;--grey-dark:#ccc8c0;--grey-mid:#d8d4cc;--sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;--green:#2a7a3b;--red:#b71c1c}
+html,body{min-height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+header{background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--serif);font-size:17px;color:#fff;background:var(--acc);padding:5px 14px;border-radius:2px;letter-spacing:.03em}
+.hgroup{display:flex;align-items:center;gap:14px}
+.whoami{font-size:12px;color:#bbb}
+.hbtn{padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;background:transparent;border:1px solid #555;color:#ccc;text-decoration:none}
+.hbtn:hover{background:#333;border-color:#888;color:#fff}
+main{max-width:960px;margin:0 auto;padding:28px 20px 60px}
+h1{font-family:var(--serif);font-size:24px;margin-bottom:6px}
+.lead{color:var(--ink-mid);margin-bottom:24px}
+.card{background:#f4f3f1;border:1px solid var(--grey-dark);border-radius:3px;padding:20px 22px;margin-bottom:20px}
+.card h2{font-family:var(--serif);font-size:17px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;background:#fff;border:1px solid var(--grey-mid);border-radius:2px;font-size:13px}
+.item .name{font-weight:600}
+.muted{color:var(--ink-soft);font-size:13px;padding:8px 0}
+.mini{font-size:11px;font-weight:600;padding:4px 9px;border-radius:2px;border:1px solid var(--grey-dark);background:#fff;cursor:pointer;color:var(--ink-mid)}
+.mini:hover{border-color:var(--acc);color:var(--acc)}
+.mini.danger:hover{border-color:var(--red);color:var(--red)}
+.result{display:none;margin-top:12px;padding:10px 12px;font-size:12px;border-radius:2px}
+.result.show{display:block}
+.result.ok{background:#e8f5e9;border:1px solid #c8e6c9;color:#1b5e20}
+.result.err{background:#ffebee;border:1px solid #ffcdd2;color:var(--red)}
+.result.info{background:#e3eaf5;border:1px solid #c5d4ea;color:#1a4480}
+.pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px}
+.pill.published{background:#e0ddd6;color:#555}
+.pill.viewed{background:#c8e6c9;color:#1b5e20}
+.pill.revoked{background:#e8dada;color:#8a3a3a}
+.pill.expired{background:#f3d9d9;color:var(--red)}
+.pill.active{background:#e3eaf5;color:#1a4480}
+.pub-meta{font-size:11px;color:var(--ink-soft);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">MPYA Published CVs</span>
+  <!-- V3-P-003 role-specific top-banner navigation (S6). -->
+  <nav id="topNav" style="display:flex;gap:8px;margin-left:auto;margin-right:14px"></nav>
+  <div class="hgroup">
+    <span class="whoami" id="whoami"></span>
+    <button class="hbtn" onclick="logout()">Sign out</button>
+  </div>
+</header>
+<main>
+  <h1>Published CVs</h1>
+  <div class="lead">
+    Shareable hiring-manager links for tailored CVs. An anonymous open flips
+    status to <em>"Viewed by hiring manager"</em> — evidence the link was
+    opened, not proof it was read.
+  </div>
+
+  <div class="result" id="scopeMsg" style="display:none"></div>
+
+  <div class="card">
+    <h2>Published CVs</h2>
+    <div class="list" id="pubList"><div class="muted">Loading…</div></div>
+    <div class="result" id="pubResult"></div>
+  </div>
+</main>
+
+<script src="/html/auth-guard.js"></script>
+<script>
+/* Published CVs dashboard (V3-P-003, S6). GET /api/publications already scopes
+   to the caller's role (backend/cv_publish/routes.py::list_publications) — a
+   Consultant sees their own, a TA their assigned Consultants', an Admin all —
+   and natively supports narrowing by `?consultant_username=`, which is what
+   `?consultant_id=` on this page's URL is forwarded as. */
+let me = null;
+/* Resolved against GET /api/me/consultants in init() below — never the raw
+   URL value. An unauthorized or unresolvable `?consultant_id=` must not be
+   trusted into a banner, an API filter, or a forwarded nav link. */
+let filterConsultant = '';
+let contextError = '';
+
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function setResult(el, kind, html){ el.className = 'result show ' + kind; el.innerHTML = html; }
+
+function relTime(iso){
+  if(!iso) return '';
+  const then = new Date(iso), now = new Date(), s = Math.max(0, (now - then) / 1000);
+  if(s < 60) return 'just now';
+  if(s < 3600) return Math.floor(s/60) + 'm ago';
+  if(s < 86400) return Math.floor(s/3600) + 'h ago';
+  if(s < 604800) return Math.floor(s/86400) + 'd ago';
+  return then.toLocaleDateString();
+}
+
+// One row per publication the caller may reach.
+function _pubRowParts(p){
+  if(p.revoked){
+    return {
+      statusHtml: '<span class="pill revoked">Revoked</span>',
+      actions: [],
+    };
+  }
+  const msLeft = new Date(p.expires_at) - new Date();
+  const expired = msLeft <= 0;
+  const viewed = p.status === 'link_opened';
+  const statusLabel = viewed ? 'Viewed by hiring manager' : 'Published';
+  const statusCls = viewed ? 'viewed' : 'published';
+  let html = '<span class="pill '+statusCls+'" title="An anonymous open of the link — not proof the hiring manager read it.">'+statusLabel+'</span>';
+  if(viewed){
+    html += ' <span>'+p.view_count+' view'+(p.view_count===1?'':'s')+(p.last_viewed_at ? ' · last '+relTime(p.last_viewed_at) : '')+'</span>';
+  }
+  html += expired
+    ? ' <span class="pill expired">Expired</span>'
+    : ' <span class="pill active">'+Math.max(1, Math.ceil(msLeft/86400000))+'d left</span>';
+  return {
+    statusHtml: html,
+    actions: expired ? ['revoke'] : ['extend','revoke'],
+  };
+}
+
+async function loadPublications(){
+  const box = document.getElementById('pubList');
+  const scopeMsg = document.getElementById('scopeMsg');
+  if (contextError) {
+    scopeMsg.className = 'result show err';
+    scopeMsg.style.display = 'block';
+    scopeMsg.textContent = contextError;
+  } else if (filterConsultant) {
+    scopeMsg.className = 'result show info';
+    scopeMsg.style.display = 'block';
+    scopeMsg.innerHTML = 'Showing publications for <strong>' + esc(filterConsultant)
+      + '</strong> — <a href="/html/published-cvs.html">show all</a>.';
+  } else {
+    scopeMsg.className = 'result';
+    scopeMsg.style.display = 'none';
+  }
+  let d;
+  try{
+    const params = filterConsultant ? '?consultant_username=' + encodeURIComponent(filterConsultant) : '';
+    const r = await fetch('/api/publications' + params, {credentials:'same-origin'});
+    if(!r.ok){ box.innerHTML = '<div class="muted">Could not load.</div>'; return; }
+    d = await r.json();
+  }catch(e){ box.innerHTML = '<div class="muted">Could not load.</div>'; return; }
+
+  if(!d.publications.length){ box.innerHTML = '<div class="muted">No published CVs yet.</div>'; return; }
+
+  box.innerHTML = d.publications.map(p => {
+    const name = p.consultant_full_name || p.consultant_username;
+    const parts = _pubRowParts(p);
+    // No "Copy link" here: a raw capability token is never stored or
+    // reconstructable from its hash (ADR-009/D-013/P-010) — only a fresh
+    // publish/republish response ever carries one, shown once in the editor.
+    const btn = act => {
+      if(act === 'extend') return '<button class="mini" data-act="extend" data-id="'+esc(p.id)+'">Extend</button>';
+      return '<button class="mini danger" data-act="revoke" data-id="'+esc(p.id)+'">Revoke</button>';
+    };
+    // The underlying Application/tailored CV outlives the publication's own
+    // lifecycle (revoked or expired), so Open is offered unconditionally —
+    // an expired link needing republish still opens the same editor.
+    const open = '<button class="mini" data-act="open" data-app="'+esc(p.application_id)
+      +'" data-consultant="'+esc(p.consultant_username)+'">Open CV</button>';
+    return '<div class="item"><div><div class="name">'+esc(name)+' — '+esc(p.title||p.job_id)+'</div>'+
+      '<div class="pub-meta">'+parts.statusHtml+' · published '+relTime(p.created_at)+'</div></div>'+
+      '<div style="display:flex;gap:6px;align-items:center">'+open+parts.actions.map(btn).join('')+'</div></div>';
+  }).join('');
+
+  box.querySelectorAll('button[data-act]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.act;
+      if(act === 'extend') extendPublication(btn.dataset.id);
+      else if(act === 'revoke') revokePublication(btn.dataset.id);
+      else if(act === 'open') openApplication(btn.dataset.app, btn.dataset.consultant);
+    });
+  });
+}
+
+/* Opens the existing tailored-CV editor for the Application this publication
+   was derived from — the editor's application mode (P-009), the same
+   `?application=<id>` convention html/applications.html uses, so the base/
+   tailored artifact split is preserved rather than a new destination
+   inventing its own routing. `consultant_id` carries the row's own owner
+   (already authorized — this row would not be listed otherwise), not the
+   page's `filterConsultant` context. */
+function openApplication(applicationId, consultantUsername){
+  const url = '/html/cv-importer.html?application=' + encodeURIComponent(applicationId)
+            + '&consultant_id=' + encodeURIComponent(consultantUsername);
+  window.open(url, '_blank');
+}
+
+async function _pubErr(r, fallback){
+  let msg = fallback;
+  try{ const b = await r.json(); if(b && b.detail) msg = (typeof b.detail === 'string') ? b.detail : (b.detail.message || fallback); }catch(_){}
+  return msg;
+}
+
+async function extendPublication(id){
+  const res = document.getElementById('pubResult');
+  try{
+    const r = await fetch('/api/publications/'+encodeURIComponent(id)+'/extend', {method:'POST', credentials:'same-origin'});
+    if(r.ok){ setResult(res,'ok','Link extended — the expiry clock was reset.'); loadPublications(); }
+    else setResult(res,'err','Could not extend: '+esc(await _pubErr(r,'this link may have expired or been revoked — republish it instead.')));
+  }catch(e){ setResult(res,'err','Could not extend — network error.'); }
+}
+
+async function revokePublication(id){
+  if(!confirm('Revoke this link? The hiring manager will no longer be able to open it.')) return;
+  const res = document.getElementById('pubResult');
+  try{
+    const r = await fetch('/api/publications/'+encodeURIComponent(id), {method:'DELETE', credentials:'same-origin'});
+    if(r.ok){ setResult(res,'ok','Link revoked — it can no longer be opened.'); loadPublications(); }
+    else setResult(res,'err','Could not revoke: '+esc(await _pubErr(r,'you may not have access to this publication.')));
+  }catch(e){ setResult(res,'err','Could not revoke — network error.'); }
+}
+
+/* Exposed so tests can await the page's own init deterministically, the same
+   convention html/cv-importer.html uses for window.__identityReady. */
+window.__initReady = (async () => {
+  me = await requireAuth(['consultant','ta','admin']);
+  document.getElementById('whoami').textContent =
+    me.username + ' · ' + (me.roles || []).join(' + ');
+  const wanted = new URLSearchParams(location.search).get('consultant_id') || '';
+  const resolved = await resolveConsultantContext(wanted);
+  filterConsultant = resolved.consultant;
+  contextError = resolved.error;
+  renderTopNav(document.getElementById('topNav'), me, 'Published CVs', filterConsultant);
+  await loadPublications();
+})();
+</script>
+</body>
+</html>

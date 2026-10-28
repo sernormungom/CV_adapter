@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CV Builder – Mpya Style</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;700&family=Raleway:wght@300;400;600&display=swap" rel="stylesheet">
+<!-- Mammoth (client-side DOCX reading) was removed here: it was orphaned when
+     CV import moved to server-side extraction, long before Slice 3, and nothing
+     in the page referenced it. A third-party script executing on every load of
+     a page that renders CV content is worth deleting once it does nothing.
+     Slice 4's durable import extracts server-side too, so it will not need it. -->
+<script src="/html/auth-guard.js"></script>
+<script>
+/* Phase 2e: require a session; seed a consultant's identity from it so the
+   page's existing localStorage-based logic uses the authenticated user. */
+/* Resolves once the active identity is written to localStorage. The profile
+   loader awaits this so it never reads a stale/empty username. */
+window.__identityReady = (async function(){
+  const me = await requireAuth(['consultant','ta','admin']);
+  window.__me = me;   // read by the top-nav render in the DOMContentLoaded handler below
+  const target = new URLSearchParams(location.search).get('consultant_id');
+  // Membership tests, not primary-role comparisons: an Admin+Consultant
+  // (P-004) is genuinely both. Only a role that may view-as (admin/TA) can
+  // act on someone else's profile — a consultant-only account always lands on
+  // its own, so a hand-typed ?consultant_id cannot redirect it (the server
+  // authorizes independently regardless).
+  const canViewAs = hasAnyRole(me, ['admin', 'ta']);
+  if (hasRole(me, 'consultant') && !(canViewAs && target)) {
+    // Own profile — no switching.
+    localStorage.setItem('mpya_username', me.username);
+    localStorage.setItem('mpya_consultant_id', me.username);
+  } else if (target) {
+    // Admin/TA opened the editor for a specific consultant (view-as). The
+    // target must be one GET /api/me/consultants actually authorizes — a
+    // hand-typed or stale ?consultant_id must not seed an identity every
+    // other function on this page would then act as, even though the server
+    // would separately refuse it. A dual-role Admin/TA+Consultant falls back
+    // to their own profile; anyone else's invalid target is cleared, not left
+    // stale, so the page starts from "no identity" rather than a wrong one.
+    const resolved = await resolveConsultantContext(target);
+    const username = resolved.consultant || (hasRole(me, 'consultant') ? me.username : '');
+    if (username) {
+      localStorage.setItem('mpya_username', username);
+      localStorage.setItem('mpya_consultant_id', username);
+    } else {
+      localStorage.removeItem('mpya_username');
+      localStorage.removeItem('mpya_consultant_id');
+    }
+  } else {
+    // TA/Admin-only, no ?consultant_id=: no identity was ever selected this
+    // load. Clear any stale value a prior session (or an earlier consultant
+    // selection on this same browser) left behind, rather than silently
+    // reusing it — matching a session that never selected one.
+    localStorage.removeItem('mpya_username');
+    localStorage.removeItem('mpya_consultant_id');
+  }
+})();
+</script>
+<link rel="stylesheet" href="/html/cv-render.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;
+  --grey:#e5e1da;--grey-mid:#d8d4cc;--grey-dark:#ccc8c0;
+  --sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;
+}
+html,body{height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+.app{display:grid;grid-template-columns:350px 1fr;grid-template-rows:52px 1fr;height:100vh}
+
+
+/* ── TOP BAR ── */
+header{grid-column:1/-1;background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;padding:0 28px}
+.logo{font-family:var(--serif);font-size:17px;color:#fff;letter-spacing:.03em;background:var(--acc);padding:5px 14px;border-radius:2px}
+.hbtns{display:flex;gap:8px}
+.hbtn{display:inline-flex;align-items:center;padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;border:1px solid #555;background:transparent;color:#ccc;text-decoration:none;transition:all .15s}
+.hbtn:hover{background:#333;border-color:#888;color:#fff}
+.hbtn.nav-disabled{opacity:.4;cursor:default}
+.hbtn.nav-disabled:hover{background:transparent;border-color:#555;color:#ccc}
+.hbtn-ghost{background:var(--acc);border-color:var(--acc);color:#fff}
+.hbtn-ghost:hover{background:#6e1860;border-color:#6e1860;color:#fff}
+.hbtn-acc{background:var(--acc);color:#fff;border-color:var(--acc)}
+.hbtn-acc:hover{background:#6e1860;border-color:#6e1860}
+.hbtn-signout{background:transparent;border-color:#555;color:#ccc}
+.hbtn-signout:hover{background:#333;border-color:#888;color:#fff}
+.hbtn:disabled{opacity:.35;cursor:not-allowed}
+.hbtn:disabled:hover{background:var(--acc);border-color:var(--acc)}
+
+/* ── EDITOR PANEL ── */
+.sidebar{background:#f4f3f1;overflow-y:auto;padding:16px 0 80px}
+.slabel{font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#888;padding:0 18px 5px;margin-top:18px;display:block}
+.slabel:first-of-type{margin-top:0}
+.sfield{padding:0 18px 9px}
+.sfield label{display:block;font-size:11px;color:#444;margin-bottom:3px}
+.sfield input,.sfield textarea,.sfield select{width:100%;background:#fff;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:12px;padding:5px 8px;border-radius:2px;outline:none;resize:vertical;transition:border-color .15s}
+.sfield input:focus,.sfield textarea:focus,.sfield select:focus{border-color:var(--acc)}
+.sfield textarea{min-height:52px;line-height:1.5}
+.srow{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 18px 9px}
+.srow label{display:block;font-size:11px;color:#444;margin-bottom:3px}
+.srow input,.srow select{width:100%;background:#fff;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:12px;padding:5px 8px;border-radius:2px;outline:none;transition:border-color .15s}
+.srow input:focus,.srow select:focus{border-color:var(--acc)}
+.sdiv{height:1px;background:#e0ddd8;margin:4px 18px 0}
+.upload-privacy-note{margin:0 18px 14px;padding:8px 10px;font-size:10.5px;line-height:1.5;color:#777;background:#eceae5;border:1px solid #e0ddd8;border-radius:2px}
+.upload-privacy-note a{color:var(--acc,#972182)}
+
+/* Style controls */
+.sc-row{display:grid;grid-template-columns:70px 1fr 32px 32px;gap:5px;align-items:center;margin-bottom:6px}
+.sc-row:last-child{margin-bottom:0}
+.sc-row label{font-size:10px;color:#444}
+.sc-row select,.sc-row input[type=number]{background:#fff;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:11px;padding:3px 5px;border-radius:2px;outline:none;width:100%}
+.sc-row select:focus,.sc-row input[type=number]:focus{border-color:var(--acc)}
+.sc-row input[type=color]{width:100%;height:24px;padding:1px 2px;background:#fff;border:1px solid #ccc;border-radius:2px;cursor:pointer}
+.sc-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--acc);cursor:pointer}
+
+/* Skill columns editor */
+.skill-cols-wrap{padding:0 18px 10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.sc-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#666;margin-bottom:4px}
+.sc-items{display:flex;flex-direction:column;gap:3px}
+.sc-items input{width:100%;background:#fff;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:11px;padding:4px 6px;border-radius:2px;outline:none}
+.sc-items input:focus{border-color:var(--acc)}
+.sc-add{background:transparent;border:1px dashed #bbb;color:#777;font-size:10px;padding:3px;border-radius:2px;cursor:pointer;width:100%;margin-top:3px;transition:all .15s}
+.sc-add:hover{border-color:#888;color:#333}
+
+/* Entries */
+.elist{padding:0 18px}
+.entry{background:#fff;border:1px solid #d8d5cf;border-radius:2px;padding:9px;margin-bottom:5px;position:relative}
+.entry input,.entry textarea{width:100%;background:#f9f8f6;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:12px;padding:4px 7px;border-radius:2px;outline:none;margin-bottom:4px;resize:vertical;transition:border-color .15s}
+.entry textarea{min-height:44px;line-height:1.5}
+.entry input:focus,.entry textarea:focus{border-color:var(--acc)}
+.egrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:4px}
+.egrid input{margin:0}
+.edel{position:absolute;top:6px;right:6px;background:transparent;border:none;color:#aaa;cursor:pointer;font-size:15px;line-height:1;transition:color .15s}
+.edel:hover{color:var(--acc)}
+.exp-drag-handle{position:absolute;top:6px;left:6px;width:16px;text-align:center;cursor:grab;color:#bbb;font-size:13px;line-height:1;letter-spacing:1px;user-select:none;padding:2px}
+.exp-drag-handle:hover{color:var(--acc)}
+.exp-drag-handle:active{cursor:grabbing}
+[data-exp-id].dragging{opacity:.4}
+[data-exp-id].drag-over-top{box-shadow:inset 0 2px 0 var(--acc)}
+[data-exp-id].drag-over-bottom{box-shadow:inset 0 -2px 0 var(--acc)}
+.add-btn{display:flex;align-items:center;justify-content:center;background:transparent;border:1px dashed #bbb;color:#777;font-family:var(--sans);font-size:11px;padding:5px;border-radius:2px;cursor:pointer;margin:0 18px 7px;width:calc(100% - 36px);transition:all .15s}
+.add-btn:hover{border-color:#888;color:#333}
+
+/* Assignment sub-entries */
+.assignment{background:#f0eeeb;border:1px solid #d8d5cf;border-radius:2px;padding:7px;margin-top:5px;position:relative}
+.assignment input{width:100%;background:#fff;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:12px;padding:4px 7px;border-radius:2px;outline:none;margin-bottom:4px;transition:border-color .15s}
+.assignment input:focus{border-color:var(--acc)}
+.assignment-label{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#666;margin-bottom:5px;display:block}
+.add-assign{display:flex;align-items:center;justify-content:center;background:transparent;border:1px dashed #bbb;color:#777;font-family:var(--sans);font-size:10px;padding:4px;border-radius:2px;cursor:pointer;width:100%;margin-top:5px;transition:all .15s}
+.add-assign:hover{border-color:#888;color:#aaa}
+
+/* Rich text editor */
+.rte-wrap{margin-bottom:4px}
+.rte-toolbar{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:3px}
+.rte-btn{background:#fff;border:1px solid #ccc;color:#444;font-family:var(--sans);font-size:10px;padding:2px 6px;border-radius:2px;cursor:pointer;line-height:1.4;transition:all .15s;white-space:nowrap}
+.rte-btn:hover{border-color:#888;color:#111}
+.rte-btn.active{background:var(--acc);border-color:var(--acc);color:#fff}
+.rte-btn input[type=color]{width:14px;height:14px;padding:0;border:none;background:none;cursor:pointer;vertical-align:middle}
+.rte-body{min-height:52px;background:#fff;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:12px;padding:5px 8px;border-radius:2px;outline:none;line-height:1.5;resize:vertical}
+.rte-body:focus{border-color:var(--acc)}
+.rte-body ul,.rte-body ol{padding-left:16px;margin:2px 0}
+.rte-body li{margin-bottom:1px}
+
+
+
+/* Photo upload */
+.photo-up{margin:0 18px 10px;border:1px dashed #3a3a3a;border-radius:2px;padding:10px;text-align:center;cursor:pointer;position:relative}
+.photo-up:hover{border-color:var(--acc)}
+.photo-up input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.photo-up p{font-size:11px;color:#666;line-height:1.5}
+.photo-prev{width:100%;max-height:110px;object-fit:cover;border-radius:2px}
+
+/* ── PREVIEW ── */
+.preview-pane{overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:32px 20px;background:#bbb8b0}
+
+
+/* ── CHAT PANEL ── */
+.chat-panel{
+  position:fixed;top:52px;right:0;bottom:0;width:340px;
+  background:#f8f7f5;border-left:1px solid #ddd;
+  display:flex;flex-direction:column;overflow:hidden;
+  transform:translateX(100%);transition:transform .2s ease;
+  box-shadow:-4px 0 24px rgba(0,0,0,.13);
+  z-index:500;
+}
+.app.chat-open .chat-panel{transform:translateX(0)}
+.chat-hd{padding:11px 14px;background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.chat-hd-title{font-size:12px;font-weight:600;color:#fff;letter-spacing:.04em}
+.chat-hd-close{background:none;border:none;color:#666;font-size:18px;cursor:pointer;line-height:1;padding:0 2px;transition:color .15s}
+.chat-hd-close:hover{color:#fff}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.chat-msg{max-width:90%;font-size:12px;line-height:1.55;border-radius:3px;padding:8px 10px;word-break:break-word}
+.chat-msg-user{background:var(--acc);color:#fff;align-self:flex-end;border-bottom-right-radius:0}
+.chat-msg-assistant{background:#fff;color:#222;border:1px solid #e0ddd8;align-self:flex-start;border-bottom-left-radius:0}
+.chat-msg-thinking{background:#fff;color:#aaa;border:1px solid #e0ddd8;align-self:flex-start;font-style:italic;border-bottom-left-radius:0}
+.chat-profile-card{background:#f4f0f9;border:1px solid #d8c8e8;border-radius:3px;padding:9px 11px;font-size:11px;color:#3a1050;align-self:flex-start;max-width:92%;word-break:break-word}
+.chat-profile-card-lbl{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#972182;margin-bottom:5px}
+.chat-profile-card-btns{display:flex;gap:6px;margin-top:8px}
+.chat-btn-apply{background:var(--acc);border:none;color:#fff;font-size:10px;font-weight:600;padding:4px 10px;border-radius:2px;cursor:pointer;transition:background .15s}
+.chat-btn-apply:hover{background:#6e1860}
+.chat-btn-apply:disabled{background:#ccc;cursor:default}
+.chat-btn-dismiss{background:none;border:1px solid #ccc;color:#666;font-size:10px;padding:4px 10px;border-radius:2px;cursor:pointer;transition:all .15s}
+.chat-btn-dismiss:hover{border-color:#888;color:#333}
+.chat-ft{padding:10px 12px;background:#eceae6;border-top:1px solid #e0ddd8;display:flex;gap:6px;align-items:flex-end;flex-shrink:0}
+.chat-input{flex:1;background:#fff;border:1px solid #ccc;color:#222;font-family:var(--sans);font-size:12px;padding:6px 8px;border-radius:2px;outline:none;resize:none;line-height:1.5;min-height:36px;max-height:100px;overflow-y:auto;transition:border-color .15s}
+.chat-input:focus{border-color:var(--acc)}
+.chat-send{background:var(--acc);border:none;color:#fff;width:34px;height:34px;border-radius:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+.chat-send:hover{background:#6e1860}
+.chat-send:disabled{background:#ccc;cursor:default}
+.chat-empty{color:#bbb;font-size:11px;font-style:italic;text-align:center;margin-top:40px;padding:0 20px;line-height:1.6}
+
+/* RCB-D1: the Application-mode banner is a screen affordance only — it must
+   never appear in a printed/PDF tailored CV. Same shape as cv-viewer.html's
+   own print rule for its header. */
+@media print{#appEditBanner{display:none!important}}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- TOP BAR -->
+<header>
+  <div class="logo">MPYA Base CV</div>
+  <span id="currentUserChip" title="Active profile" style="display:none;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.7);margin-left:12px;padding:3px 8px;border:1px solid rgba(255,255,255,.25);border-radius:20px">
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 1c-2.67 0-8 1.34-8 4v1h16v-1c0-2.66-5.33-4-8-4z"/></svg>
+    <span id="currentUserLabel"></span>
+  </span>
+  <!-- V3-P-003 role-specific top-banner navigation (S6): the Consultant matrix,
+       rendered once the identity resolves (see the DOMContentLoaded handler
+       near the editor-mode switch below). -->
+  <nav id="topNav" class="hbtns" style="margin-left:auto;margin-right:14px"></nav>
+  <div class="hbtns">
+    <!-- V2 Slice 4: durable async CV import, replacing the disabled synchronous
+         POST /api/import-cv (Release Cut A, docs/plans/v2-pilot.md Slice 3).
+         Writes profile.md, which is base profile material — gated by
+         _baseProfileWritesAllowed() like the photo upload and the chat profile
+         patch, for the same P-009 reason (S3-P1-R1 finding 1). -->
+    <input type="file" id="cvImportInput" accept=".pdf,.doc,.docx,.md,.markdown" style="display:none" onchange="handleAsyncImportFile(this.files[0]);this.value=''">
+    <button class="hbtn hbtn-ghost" id="importBtn" title="Your CV is processed by Anthropic Claude (an AI service) to extract structured facts. Please avoid including sensitive data such as health information or union membership." onclick="document.getElementById('cvImportInput').click()">↑ Import CV</button>
+    <button class="hbtn hbtn-ghost" onclick="goToJobs()">⚡ Jobs</button>
+    <button class="hbtn hbtn-ghost" onclick="_handlePrintClick()">↓ Print / PDF</button>
+    <button class="hbtn hbtn-ghost" id="publishBtn" disabled title="Open a position's tailored CV to publish it" onclick="openPublishConfirm()">🔗 Publish</button>
+    <button class="hbtn hbtn-ghost" id="chatToggleBtn" onclick="toggleChat()">✦ CV Assistant</button>
+    <button class="hbtn hbtn-signout" onclick="logout()">Sign out</button>
+  </div>
+</header>
+
+<!-- APPLICATION (TAILORED-CV) MODE BANNER (?application=<id>) — V2 Slice 3.
+     The editor has two explicit modes and this is the visible half of that:
+     while it shows, every save goes to this application's tailored CV and the
+     consultant's base CV is never written (P-009). -->
+<div id="appEditBanner" style="display:none;position:fixed;top:52px;left:0;right:0;z-index:800;background:#0f3a2e;color:#fff;padding:9px 20px;font-size:12px;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 10px rgba(0,0,0,.25)">
+  <span id="appEditBannerText">Editing a tailored CV — your own CV is not affected</span>
+  <span style="display:flex;gap:8px;flex-shrink:0;align-items:center">
+    <span id="appEditStatus" style="font-size:11px;opacity:.85"></span>
+    <button id="appRegenerateBtn" onclick="regenerateTailored()" style="background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;font-size:11px;padding:5px 12px;border-radius:2px;cursor:pointer">Regenerate</button>
+    <button onclick="exitApplicationEdit()" style="background:#fff;border:none;color:#0f3a2e;font-weight:600;font-size:11px;padding:5px 12px;border-radius:2px;cursor:pointer">Back to my CV</button>
+  </span>
+</div>
+
+<!-- PUBLISH CONFIRM MODAL -->
+<div id="publishConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:4px;padding:24px 28px;width:460px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.32);font-family:'Source Sans 3',sans-serif">
+    <div style="font-size:14px;font-weight:600;color:#1c1c1c;margin-bottom:12px">Publish this CV?</div>
+    <div style="font-size:12px;color:#444;line-height:1.6;margin-bottom:14px">
+      Anyone with the link can view and download this CV as a PDF — no login required.
+      The link stays active for <strong>28 days</strong> (renewable) and can be revoked at any time.
+      The hiring manager sees a clean, read-only version of this CV only — no editor, no other positions.
+    </div>
+    <div id="publishConfirmMsg" style="display:none;font-size:11px;color:#c04040;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closePublishConfirm()" style="padding:7px 18px;border:1px solid #ccc;border-radius:2px;background:#f4f3f1;font-family:'Source Sans 3',sans-serif;font-size:12px;cursor:pointer">Cancel</button>
+      <button id="publishConfirmBtn" onclick="confirmPublish()" style="padding:7px 18px;border:none;border-radius:2px;background:#972182;color:#fff;font-family:'Source Sans 3',sans-serif;font-size:12px;font-weight:600;cursor:pointer">Publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- PUBLISH RESULT MODAL -->
+<div id="publishResultModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:4px;padding:24px 28px;width:460px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.32);font-family:'Source Sans 3',sans-serif">
+    <div style="font-size:14px;font-weight:600;color:#1c1c1c;margin-bottom:12px" id="publishResultTitle">Published</div>
+    <div style="font-size:11px;color:#777;margin-bottom:6px">Share this link with the hiring manager:</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <input id="publishResultLink" readonly style="flex:1;font-size:12px;padding:7px 9px;border:1px solid #ccc;border-radius:2px;color:#222;background:#f9f8f6">
+      <button onclick="copyPublishLink()" style="padding:7px 12px;border:none;border-radius:2px;background:#972182;color:#fff;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">Copy</button>
+    </div>
+    <div id="publishResultExpiry" style="font-size:11px;color:#888;margin-bottom:16px"></div>
+    <div style="display:flex;justify-content:flex-end">
+      <button onclick="closePublishResult()" style="padding:7px 18px;border:1px solid #ccc;border-radius:2px;background:#f4f3f1;font-family:'Source Sans 3',sans-serif;font-size:12px;cursor:pointer">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import status toast -->
+<div id="importToast" style="display:none;position:fixed;bottom:22px;right:22px;background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--acc);color:#ccc;font-size:12px;font-family:var(--sans);padding:11px 15px;border-radius:3px;z-index:9999;max-width:300px;line-height:1.5;box-shadow:0 4px 20px rgba(0,0,0,.4)"></div>
+
+<!-- EDITOR -->
+<aside class="sidebar">
+
+  <div class="upload-privacy-note">Your CV is processed by Anthropic Claude (an AI service) to extract structured facts for your profile. Please avoid including sensitive data such as health information or union membership. See our <a href="/privacy" target="_blank" rel="noopener">privacy notice</a>.</div>
+
+  <span class="slabel">Photo</span>
+  <div class="photo-up">
+    <input type="file" accept="image/*" onchange="handlePhoto(this)">
+    <p id="photoPrompt">Click to upload photo</p>
+    <img id="photoPrev" class="photo-prev" style="display:none">
+  </div>
+
+  <span class="slabel">Personal details</span>
+  <div class="sfield"><label>Full name</label><input id="iName" placeholder="Erik Nordin" oninput="render()"></div>
+  <div class="sfield"><label>Job title</label><input id="iRole" placeholder="Project Manager / Senior ADAS Engineer" oninput="render()"></div>
+  <div class="srow">
+    <div><label>Email</label><input id="iEmail" placeholder="erik@example.com" oninput="render()"></div>
+    <div><label>Phone</label><input id="iPhone" placeholder="+46 70 000 0000" oninput="render()"></div>
+  </div>
+  <div class="sfield"><label>Availability</label><input id="iAvail" placeholder="According to agreement" oninput="render()"></div>
+
+  <!-- PROFILE -->
+  <div class="sdiv"></div>
+  <span class="slabel">Profile summary</span>
+  <div class="sfield"><textarea id="iSummary" rows="4" placeholder="A brief profile of who you are and what you bring..." oninput="render()"></textarea></div>
+
+  <!-- TECH COMPETENCE -->
+  <div class="sdiv"></div>
+  <span class="slabel">Tech competence</span>
+  <div class="skill-cols-wrap">
+    <div>
+      <div class="sc-label">Hard skills</div>
+      <div class="sc-items" id="skMain"></div>
+      <button class="sc-add" onclick="addSkill('main')">+</button>
+    </div>
+    <div>
+      <div class="sc-label">Soft skills</div>
+      <div class="sc-items" id="skOther"></div>
+      <button class="sc-add" onclick="addSkill('other')">+</button>
+    </div>
+    <div>
+      <div class="sc-label">Tools</div>
+      <div class="sc-items" id="skTool"></div>
+      <button class="sc-add" onclick="addSkill('tool')">+</button>
+    </div>
+  </div>
+  <!-- EXPERIENCE -->
+  <div class="sdiv"></div>
+  <span class="slabel">Experience</span>
+  <div class="elist" id="expList"></div>
+  <button class="add-btn" onclick="addExp()">+ Add position</button>
+
+  <!-- EDUCATION -->
+  <div class="sdiv"></div>
+  <span class="slabel">Education</span>
+  <div class="elist" id="eduList"></div>
+  <button class="add-btn" onclick="addEdu()">+ Add education</button>
+
+  <!-- LANGUAGES + COURSES -->
+  <div class="sdiv"></div>
+  <span class="slabel">Language skills</span>
+  <div class="elist" id="langList"></div>
+  <button class="add-btn" onclick="addLang()">+ Add language</button>
+
+  <div class="sdiv"></div>
+  <span class="slabel">Courses / Certifications</span>
+  <div class="elist" id="courseList"></div>
+  <button class="add-btn" onclick="addCourse()">+ Add course</button>
+
+  <!-- FOOTER -->
+  <div class="sdiv"></div>
+  <span class="slabel">Footer contact (optional)</span>
+  <div class="sfield"><label>Footer text</label><input id="iFtText" placeholder="For more information, contact: ..." oninput="render()"></div>
+  <div class="srow">
+    <div><label>Email</label><input id="iFtEmail" placeholder="email@mpya.com" oninput="render()"></div>
+    <div><label>Phone</label><input id="iFtPhone" placeholder="+46 709 55 00 28" oninput="render()"></div>
+  </div>
+
+</aside>
+
+<!-- PREVIEW -->
+<div class="preview-pane">
+  <div class="cvs" id="cvSheet"></div>
+</div>
+
+<!-- CHAT PANEL -->
+<section class="chat-panel" id="chatPanel">
+  <div class="chat-hd">
+    <span class="chat-hd-title">CV Assistant</span>
+    <button class="chat-hd-close" onclick="toggleChat()" title="Close">×</button>
+  </div>
+  <div class="chat-msgs" id="chatMsgs">
+    <div class="chat-empty" id="chatEmpty">Ask me to tune the CV, explain a choice, or update your profile.<br><br>Examples:<br>"Be more concise in the experience bullets."<br>"Why did you choose this summary?"<br>"I also did RIG testing at Volvo."</div>
+  </div>
+  <div class="chat-ft">
+    <textarea class="chat-input" id="chatInput" placeholder="Ask something or give instructions…" rows="1"
+      onkeydown="chatHandleKey(event)"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+    <button class="chat-send" id="chatSendBtn" onclick="chatSend()" title="Send (Enter)">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11z"/></svg>
+    </button>
+  </div>
+</section>
+
+</div>
+<script src="/html/cv-render.js"></script>
+<script>
+
+
+/* ── photo ── */
+/* True while a just-selected photo is mid-upload: photoSrc is a base64 data:
+   URL for the instant preview, and only swaps to the stable, publishable
+   backend URL once the POST below resolves. captureFormState() deliberately
+   strips data: URLs, so Publish/Republish must not be clickable in that gap —
+   otherwise the photo looks "added" (the preview updated) but a click right
+   then ships photoSrc:null almost every time. See _updatePublishBtnState(). */
+let _photoUploadPending = false;
+
+function handlePhoto(inp){
+  if(!inp.files[0])return;
+  /* /api/profiles/{u}/photo replaces the consultant's real profile photo, which
+     every CV — base, every other Application's tailored CV, and every existing
+     publication that snapshotted it — renders from. It is base profile
+     material, so it is gated by mode rather than by this function's own opinion
+     of which modes are risky. Publication mode was already refused here;
+     Application mode was not, and that was the P-009 hole (S3-P1-R1 finding 1).
+     Republish snapshots the profile photo anyway, so per-publication and
+     per-Application photo changes are simply not a feature. */
+  if(!_baseProfileWritesAllowed()){
+    inp.value='';
+    _refuseBaseProfileWrite('Changing your photo');
+    return;
+  }
+  const file=inp.files[0];
+  const r=new FileReader();
+  r.onload=e=>{
+    photoSrc=e.target.result; // base64 for immediate display
+    document.getElementById('photoPrompt').style.display='none';
+    const img=document.getElementById('photoPrev');img.src=photoSrc;img.style.display='block';
+    render();
+  };
+  r.readAsDataURL(file);
+  /* Upload to backend and swap photoSrc to a stable URL */
+  const _un=(localStorage.getItem('mpya_username')||'').trim();
+  if(_un){
+    _photoUploadPending = true;
+    _updatePublishBtnState();
+    const fd=new FormData();fd.append('file',file,file.name);
+    fetch(_API_BASE+'/api/profiles/'+encodeURIComponent(_un)+'/photo',{method:'POST',body:fd})
+      .then(function(res){
+        if(res.ok){
+          const url=_API_BASE+'/api/profiles/'+encodeURIComponent(_un)+'/photo?t='+Date.now();
+          photoSrc=url;
+          document.getElementById('photoPrev').src=url;
+          render();
+        }
+      }).catch(function(){})
+      .finally(function(){
+        _photoUploadPending = false;
+        _updatePublishBtnState();
+      });
+  }
+}
+
+/* ── skills ── */
+function addSkill(t){skills[t].push('');renderSkillInputs(t);render()}
+function renderSkillInputs(t){
+  const c=document.getElementById('sk'+t.charAt(0).toUpperCase()+t.slice(1));
+  c.innerHTML='';
+  skills[t].forEach((val,i)=>{
+    const inp=document.createElement('input');
+    inp.value=val;
+    inp.placeholder=t==='tool'?'e.g. System Weaver':t==='main'?'e.g. Project Mgmt':'e.g. ISO 26262';
+    inp.oninput=()=>{skills[t][i]=inp.value;render()};
+    c.appendChild(inp);
+  });
+}
+['main','other','tool'].forEach(t=>{skills[t]=[];renderSkillInputs(t)});
+
+/* ── experience ── */
+function addExp(){
+  expList.push({id:expId++,company:'',location:'',from:'',to:'',assignments:[{id:assignId++,role:'',period:'',descHtml:'',tools:''}]});
+  renderExpList();render();
+}
+function removeExp(id){expList=expList.filter(e=>e.id!==id);renderExpList();render()}
+function updExp(id,k,val){const e=expList.find(x=>x.id===id);if(e){e[k]=val;render()}}
+function addAssignment(empId){
+  const e=expList.find(x=>x.id===empId);
+  if(e){e.assignments.push({id:assignId++,role:'',period:'',descHtml:'',tools:''});renderExpList();render();}
+}
+function removeAssignment(empId,aId){
+  const e=expList.find(x=>x.id===empId);
+  if(e){e.assignments=e.assignments.filter(a=>a.id!==aId);renderExpList();render();}
+}
+function updAssign(empId,aId,k,val){
+  const e=expList.find(x=>x.id===empId);
+  if(e){const a=e.assignments.find(x=>x.id===aId);if(a){a[k]=val;render();}}
+}
+function updAssignHtml(empId,aId,html){
+  const e=expList.find(x=>x.id===empId);
+  if(e){const a=e.assignments.find(x=>x.id===aId);if(a){a.descHtml=html;render();}}
+}
+
+/* ── experience drag-to-reorder ──
+   Order lives purely in expList's array order (also how it's saved to
+   cv_state — see the `expList` map in the save payload below), so reordering
+   here is just an array splice + re-render; nothing server-side needs to
+   change to support it. */
+let _expDragId=null;
+function expDragStart(ev){
+  const card=ev.currentTarget;
+  _expDragId=+card.dataset.expId;
+  ev.dataTransfer.effectAllowed='move';
+  ev.dataTransfer.setData('text/plain',String(_expDragId));
+  setTimeout(()=>card.classList.add('dragging'),0);
+}
+function expDragOver(ev){
+  if(_expDragId==null)return;
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect='move';
+  const card=ev.currentTarget;
+  if(+card.dataset.expId===_expDragId)return;
+  const before=(ev.clientY-card.getBoundingClientRect().top)<card.offsetHeight/2;
+  card.classList.toggle('drag-over-top',before);
+  card.classList.toggle('drag-over-bottom',!before);
+}
+function expDragLeave(ev){
+  ev.currentTarget.classList.remove('drag-over-top','drag-over-bottom');
+}
+function expDrop(ev){
+  ev.preventDefault();
+  const card=ev.currentTarget;
+  card.classList.remove('drag-over-top','drag-over-bottom');
+  const targetId=+card.dataset.expId;
+  if(_expDragId==null||targetId===_expDragId)return;
+  const before=(ev.clientY-card.getBoundingClientRect().top)<card.offsetHeight/2;
+  const fromIdx=expList.findIndex(e=>e.id===_expDragId);
+  if(fromIdx===-1)return;
+  const [moved]=expList.splice(fromIdx,1);
+  let toIdx=expList.findIndex(e=>e.id===targetId);
+  if(toIdx===-1){expList.push(moved);}
+  else{expList.splice(before?toIdx:toIdx+1,0,moved);}
+  renderExpList();render();
+}
+function expDragEnd(ev){
+  _expDragId=null;
+  document.querySelectorAll('#expList [data-exp-id]').forEach(c=>
+    c.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+}
+
+/* RTE helpers */
+let _savedRange=null;
+function saveSelection(){
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount>0)_savedRange=sel.getRangeAt(0).cloneRange();
+}
+function restoreSelection(){
+  if(!_savedRange)return false;
+  const sel=window.getSelection();sel.removeAllRanges();sel.addRange(_savedRange);return true;
+}
+function rteFormat(cmd,val){
+  if(!restoreSelection())return;
+  document.execCommand(cmd,false,val||null);
+  const body=document.querySelector('.rte-body[data-focused]');
+  if(body)updAssignHtml(+body.dataset.emp,+body.dataset.aid,body.innerHTML);
+}
+function rteColor(input,empId,aId){
+  saveSelection();
+  document.execCommand('foreColor',false,input.value);
+  const body=document.getElementById('rte-'+empId+'-'+aId);
+  if(body)updAssignHtml(empId,aId,body.innerHTML);
+}
+function rteBullets(empId,aId,type){
+  if(!restoreSelection())return;
+  if(type==='ul')document.execCommand('insertUnorderedList',false,null);
+  else if(type==='ol')document.execCommand('insertOrderedList',false,null);
+  const body=document.getElementById('rte-'+empId+'-'+aId);
+  if(body)updAssignHtml(empId,aId,body.innerHTML);
+}
+
+function renderExpList(){
+  const el=document.getElementById('expList');el.innerHTML='';
+  expList.forEach(e=>{
+    const d=document.createElement('div');d.className='entry';
+    d.dataset.expId=e.id;
+    d.draggable=true;
+    d.ondragstart=expDragStart;
+    d.ondragover=expDragOver;
+    d.ondragleave=expDragLeave;
+    d.ondrop=expDrop;
+    d.ondragend=expDragEnd;
+    const assignHTML=e.assignments.map(a=>`
+      <div class="assignment" id="assign-${a.id}">
+        <span class="assignment-label">Assignment</span>
+        <button class="edel" style="top:5px;right:5px" onclick="removeAssignment(${e.id},${a.id})">×</button>
+        <input placeholder="Role / Position title" value="${esc(a.role)}" oninput="updAssign(${e.id},${a.id},'role',this.value)">
+        <input placeholder="Period (e.g. Jan 2020 – Dec 2021)" value="${esc(a.period)}" oninput="updAssign(${e.id},${a.id},'period',this.value)">
+        <div class="rte-wrap">
+          <div class="rte-toolbar">
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="rteFormat('bold')" title="Bold"><b>B</b></button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="rteFormat('italic')" title="Italic"><i>I</i></button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="rteFormat('underline')" title="Underline"><u>U</u></button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="rteFormat('strikeThrough')" title="Strike"><s>S</s></button>
+            <label class="rte-btn" title="Text color" onmousedown="event.preventDefault()">
+              A <input type="color" value="#000000" onchange="rteColor(this,${e.id},${a.id})" style="width:14px;height:14px;padding:0;border:none;background:none;cursor:pointer;vertical-align:middle">
+            </label>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="rteFormat('fontSize','2')" title="Smaller">A−</button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="rteFormat('fontSize','5')" title="Larger">A+</button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="rteBullets(${e.id},${a.id},'ul')" title="Bullet list">• list</button>
+            <button class="rte-btn" onmousedown="event.preventDefault()" onclick="rteBullets(${e.id},${a.id},'ol')" title="Numbered list">1. list</button>
+          </div>
+          <div class="rte-body" id="rte-${e.id}-${a.id}" contenteditable="true"
+            data-emp="${e.id}" data-aid="${a.id}"
+            onfocus="this.dataset.focused='1'"
+            onblur="delete this.dataset.focused"
+            onmouseup="saveSelection()" onkeyup="saveSelection()"
+            oninput="updAssignHtml(${e.id},${a.id},this.innerHTML)">${a.descHtml||''}</div>
+        </div>
+        <input placeholder="Tools & Skills: ..." value="${esc(a.tools)}" oninput="updAssign(${e.id},${a.id},'tools',this.value)">
+      </div>`).join('');
+    d.innerHTML=`<span class="exp-drag-handle" title="Drag to reorder">⋮⋮</span>
+      <button class="edel" onclick="removeExp(${e.id})">×</button>
+      <div class="egrid" style="margin-left:18px">
+        <input placeholder="Company" value="${esc(e.company)}" oninput="updExp(${e.id},'company',this.value)">
+        <input placeholder="Location" value="${esc(e.location)}" oninput="updExp(${e.id},'location',this.value)">
+      </div>
+      <div class="egrid">
+        <input placeholder="From" value="${esc(e.from)}" oninput="updExp(${e.id},'from',this.value)">
+        <input placeholder="To" value="${esc(e.to)}" oninput="updExp(${e.id},'to',this.value)">
+      </div>
+      ${assignHTML}
+      <button class="add-assign" onclick="addAssignment(${e.id})">+ Add assignment</button>`;
+    el.appendChild(d);
+  });
+}
+/* ── languages ── */
+function addLang(){langList.push({id:langId++,name:'',level:''});renderLangList();render()}
+function removeLang(id){langList=langList.filter(e=>e.id!==id);renderLangList();render()}
+function updLang(id,k,val){const e=langList.find(x=>x.id===id);if(e){e[k]=val;render()}}
+function renderLangList(){
+  const el=document.getElementById('langList');el.innerHTML='';
+  langList.forEach(e=>{
+    const d=document.createElement('div');d.className='entry';
+    d.innerHTML=`<button class="edel" onclick="removeLang(${e.id})">×</button>
+      <div class="egrid">
+        <input placeholder="Language" value="${esc(e.name)}" oninput="updLang(${e.id},'name',this.value)">
+        <input placeholder="Level (e.g. native)" value="${esc(e.level)}" oninput="updLang(${e.id},'level',this.value)">
+      </div>`;
+    el.appendChild(d);
+  });
+}
+
+/* ── courses ── */
+function addCourse(){courseList.push({id:courseId++,name:''});renderCourseList();render()}
+function removeCourse(id){courseList=courseList.filter(e=>e.id!==id);renderCourseList();render()}
+function updCourse(id,k,val){const e=courseList.find(x=>x.id===id);if(e){e[k]=val;render()}}
+function renderCourseList(){
+  const el=document.getElementById('courseList');el.innerHTML='';
+  courseList.forEach(e=>{
+    const d=document.createElement('div');d.className='entry';
+    d.innerHTML=`<button class="edel" onclick="removeCourse(${e.id})">×</button>
+      <input placeholder="e.g. Project Management Professional (PMP) 2016" value="${esc(e.name)}" oninput="updCourse(${e.id},'name',this.value)">`;
+    el.appendChild(d);
+  });
+}
+
+/* ── education ── */
+function addEdu(){eduList.push({id:eduId++,degree:'',institution:'',from:'',to:'',description:''});renderEduList();render()}
+function removeEdu(id){eduList=eduList.filter(e=>e.id!==id);renderEduList();render()}
+function updEdu(id,k,val){const e=eduList.find(x=>x.id===id);if(e){e[k]=val;render()}}
+function renderEduList(){
+  const el=document.getElementById('eduList');el.innerHTML='';
+  eduList.forEach(e=>{
+    const d=document.createElement('div');d.className='entry';
+    d.innerHTML=`<button class="edel" onclick="removeEdu(${e.id})">×</button>
+      <input placeholder="MSc in Electronics" value="${esc(e.degree)}" oninput="updEdu(${e.id},'degree',this.value)">
+      <input placeholder="Kungliga tekniska högskolan" value="${esc(e.institution)}" oninput="updEdu(${e.id},'institution',this.value)">
+      <div class="egrid">
+        <input placeholder="1993" value="${esc(e.from)}" oninput="updEdu(${e.id},'from',this.value)">
+        <input placeholder="1998" value="${esc(e.to)}" oninput="updEdu(${e.id},'to',this.value)">
+      </div>
+      <textarea placeholder="Specialization in Systems and Control..." oninput="updEdu(${e.id},'description',this.value)">${esc(e.description)}</textarea>`;
+    el.appendChild(d);
+  });
+}
+
+
+/* ── Jobs navigation (V2 Slice 1 — replaces the retired opportunity dashboard) ── */
+function goToJobs(){
+  const id = (localStorage.getItem('mpya_consultant_id')||'').trim();
+  if(!id){
+    toast('No consultant profile is selected yet — reload and sign in.','#c04040');
+    return;
+  }
+  saveCurrentState().finally(function(){
+    window.location.href = '/html/jobs.html?consultant_id=' + encodeURIComponent(id);
+  });
+}
+
+/* ══════════════════════════════════════════
+   CV IMPORT (V2 Slice 4 — durable async)
+
+   The synchronous `POST /api/import-cv` this replaces ran extraction plus an
+   LLM call on the open request and was disabled in Release Cut A
+   (docs/plans/v2-pilot.md Slice 3) rather than carry a known 504 path. This
+   version uploads, gets back a run to poll (202), and keeps working if the
+   page is closed — the same accept/poll shape `generateTailoredCv()` in
+   html/jobs.html already uses. Deliberately new function names rather than the
+   old handleImportFile()/importBtnState()/populateFromImport(): the flow is a
+   different shape (upload → poll → fetch a preview once done, not one
+   request/response), and tests/test_cv_editor_behaviour.py pins those three
+   names as permanently gone.
+
+   Import writes profile.md, which is base profile material — gated by
+   _baseProfileWritesAllowed() below, same as the photo upload and the chat
+   profile patch and for the same reason (S3-P1-R1 finding 1). */
+
+function _importBtnState(loading){
+  const btn=document.getElementById('importBtn');
+  btn.textContent=loading?'Importing...':'↑ Import CV';
+  btn.disabled=loading;
+  btn.style.opacity=loading?'0.6':'1';
+}
+
+async function handleAsyncImportFile(file){
+  if(!file)return;
+  if(!_baseProfileWritesAllowed()){
+    _refuseBaseProfileWrite('Importing a CV');
+    return;
+  }
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(!['pdf','doc','docx','md','markdown'].includes(ext)){
+    toast('[!] Unsupported format. Use PDF, DOCX, DOC, or Markdown (.md).','#c04040');
+    return;
+  }
+  const username=(localStorage.getItem('mpya_username')||'').trim();
+  if(!username){
+    toast('[!] Select a profile first (reload the page).','#c04040');
+    return;
+  }
+
+  toast('Uploading <strong>'+esc(file.name)+'</strong>…');
+  _importBtnState(true);
+  try{
+    const fd=new FormData();
+    fd.append('file',file,file.name);
+    const res=await fetch(
+      _API_BASE+'/api/profiles/'+encodeURIComponent(username)+'/cv-import',
+      {method:'POST',body:fd,credentials:'same-origin'}
+    );
+    const body=await res.json().catch(function(){return null;});
+    if(!res.ok){
+      throw new Error((body&&body.detail)||('Server error '+res.status));
+    }
+    toast(body.started
+      ? 'Importing — this can take about 3 minutes. It keeps running if you leave the page.'
+      : 'An import was already running for this profile.');
+    await _pollAsyncImport(username);
+  }catch(err){
+    toast('[!] Import failed: '+err.message,'#c04040');
+    _importBtnState(false);
+  }
+}
+
+/* Poll the durable status until it settles. Bounded like pollTailoredCv() in
+   html/jobs.html: the work lives in the database either way, so giving up
+   here only stops the page refreshing.
+   Budget: extract_experience alone is capped at WORKFLOW_TIMEOUT_SECONDS
+   (170s, backend/llm.py). A re-import against an existing profile also runs
+   merge_profiles right after it in the same job, same 170s cap each — up to
+   ~340s worst case before the job reaches a terminal state. 90*2s (180s) used
+   to leave only single-digit seconds of margin over the single-call case and
+   none at all over the merge case; 220*2s (440s) comfortably covers both. */
+async function _pollAsyncImport(username){
+  for(let attempt=0; attempt<220; attempt++){
+    await new Promise(function(r){setTimeout(r,2000);});
+    let body=null;
+    try{
+      const res=await fetch(
+        _API_BASE+'/api/profiles/'+encodeURIComponent(username)+'/cv-import/status',
+        {credentials:'same-origin'}
+      );
+      body = res.ok ? await res.json() : null;
+    }catch(e){ continue; }   /* a transient poll failure is not a failure */
+    if(!body){ continue; }
+    const imp = body.cv_import || {};
+    if(imp.status === 'processing'){
+      const run = body.run || {};
+      toast('Importing… '+(run.stage||'working')+' ('+(run.progress||0)+'%)');
+      continue;
+    }
+    _importBtnState(false);
+    if(imp.status === 'succeeded'){
+      const r=(imp.result&&imp.result.roles_count)||0;
+      const s=(imp.result&&imp.result.skills_count)||0;
+      const bg=(imp.result&&imp.result.blocking_gaps)||0;
+      const og=(imp.result&&imp.result.open_gaps)||0;
+      const gapNote=bg>0
+        ? '<br><span style="color:#c08000;font-size:11px">⚠ '+bg+' field'+(bg>1?'s':'')+' need clarification (open gaps: '+og+')</span>'
+        : '';
+      toast(
+        'Imported ✓<br><span style="color:#777;font-size:11px">'+r+' roles · '+s+' tools · profile.md saved</span>'+gapNote,
+        '#3a7a3a'
+      );
+      setTimeout(toastHide,7000);
+      await _applyImportPreview(username);
+    }else{
+      const message = imp.error_message === 'unparseable'
+        ? 'Import failed: We couldn’t read the text in this file. Try exporting your CV again from the original source (Word, Google Docs, LinkedIn, etc.).'
+        : imp.error_message === 'cv_too_large'
+        ? 'Import failed: This CV is too large/detailed to summarize in one pass. Try splitting it or trimming older/less relevant sections, then re-upload.'
+        : '[!] Import failed: '+(imp.error_message||imp.error_code||'unknown reason');
+      toast(message,'#c04040');
+    }
+    return;
+  }
+  _importBtnState(false);
+  toast('Still importing. Reload later to see the result.');
+}
+
+/* An import kicked off before a reload (or on another tab/device) keeps
+   running server-side regardless — but until now nothing on page load ever
+   checked back in, so "Still importing. Reload later to see the result."
+   (above) was advice the page itself couldn't act on: reloading showed
+   nothing, win or lose, even after the backend finished. Called once from
+   the DOMContentLoaded handler; a no-op unless a processing import is
+   actually found. */
+async function _resumeImportIfInProgress(username){
+  let body=null;
+  try{
+    const res=await fetch(
+      _API_BASE+'/api/profiles/'+encodeURIComponent(username)+'/cv-import/status',
+      {credentials:'same-origin'}
+    );
+    body = res.ok ? await res.json() : null;
+  }catch(e){ return; }
+  if(!body) return;
+  const imp = body.cv_import || {};
+  if(imp.status !== 'processing') return;
+  _importBtnState(true);
+  toast('Resuming import in progress — this can take about 3 minutes.');
+  await _pollAsyncImport(username);
+}
+
+/* Once an import has succeeded, profile.md holds the new facts but the open
+   editor's fields (bound to cv_state.json, a separate store — P-009) do not
+   change on their own. This fetches the current profile as form data and
+   stages it into the visible fields for review. There is no dedicated Save
+   control in this editor — the staged values persist via the same generic
+   30-second autosave as any other field edit (see setInterval below), not
+   through an import-specific step. */
+async function _applyImportPreview(username){
+  try{
+    const res=await fetch(
+      _API_BASE+'/api/profiles/'+encodeURIComponent(username)+'/cv-import/preview',
+      {credentials:'same-origin'}
+    );
+    if(!res.ok) return;
+    const body=await res.json();
+    if(body && body.form_data) _populateImportPreview(body.form_data);
+  }catch(e){ /* best-effort — the facts are already saved in profile.md regardless */ }
+}
+
+function _populateImportPreview(d){
+  function sv(id,val){
+    const el=document.getElementById(id);
+    if(el&&val!=null&&val!=='')el.value=String(val);
+  }
+  sv('iName',   d.iName);
+  sv('iRole',   d.iRole);
+  sv('iEmail',  d.iEmail);
+  sv('iPhone',  d.iPhone);
+  sv('iAvail',  d.iAvail);
+  sv('iSummary',d.iSummary);
+
+  if(d.skills){
+    ['main','other','tool'].forEach(function(t){
+      const arr=d.skills[t];
+      if(arr&&arr.length){
+        skills[t]=arr.slice();
+        renderSkillInputs(t);
+      }
+    });
+  }
+
+  if(d.experience&&d.experience.length){
+    expList=[];expId=0;assignId=0;
+    d.experience.forEach(function(exp){
+      expList.push({
+        id:expId++,
+        company:exp.company||'',
+        location:exp.location||'',
+        from:exp.from||'',
+        to:exp.to||'',
+        assignments:(exp.assignments||[]).map(function(a){
+          const html=(a.bullets&&a.bullets.length)
+            ?'<ul>'+a.bullets.map(function(b){return'<li>'+b+'</li>';}).join('')+'</ul>'
+            :'';
+          return{id:assignId++,role:a.role||'',period:a.period||'',descHtml:html,tools:a.tools||''};
+        })
+      });
+    });
+    renderExpList();
+  }
+
+  if(d.languages&&d.languages.length){
+    langList=[];langId=0;
+    d.languages.forEach(function(l){
+      langList.push({id:langId++,name:l.name||'',level:l.level||''});
+    });
+    renderLangList();
+  }
+
+  if(d.courses&&d.courses.length){
+    courseList=[];courseId=0;
+    d.courses.forEach(function(c){
+      courseList.push({id:courseId++,name:typeof c==='string'?c:(c.name||'')});
+    });
+    renderCourseList();
+  }
+
+  const eduArr=Array.isArray(d.education)?d.education:(d.education?[d.education]:[]);
+  if(eduArr.length){
+    eduList=[];eduId=0;
+    eduArr.forEach(function(e){
+      eduList.push({id:eduId++,degree:e.degree||'',institution:e.institution||'',from:e.from||'',to:e.to||'',description:e.description||''});
+    });
+    renderEduList();
+  }
+
+  render();
+}
+
+/* ══ end CV import ══ */
+
+/* ══════════════════════════════════════════
+   TOASTS
+══════════════════════════════════════════ */
+
+function toast(msg,color){
+  const el=document.getElementById('importToast');
+  el.style.borderLeftColor=color||'var(--acc)';
+  el.innerHTML=msg;
+  el.style.display='block';
+}
+function toastHide(){
+  const el=document.getElementById('importToast');
+  el.style.display='none';
+}
+
+render();
+
+
+/* ── The editor's storage mode (V2 Slice 3, P-009) ──
+   'base'        → the consultant's own working CV,  /api/cv/base/<username>
+   'application' → one application's tailored CV,    /api/applications/<id>/cv
+
+   A publication (ADR-009/D-013) is a read-only, server-derived snapshot of an
+   Application's tailored CV — there is no separate publication-edit mode to
+   enter. To change what is published, edit the tailored CV itself and Publish
+   again (every publish call re-derives the snapshot and rotates the link).
+
+   The mode is chosen once, from the URL, before anything loads — never inferred
+   from a payload later. Every save goes through _persistCvState(), which
+   dispatches on it, so "tailored work never writes base state" is a property of
+   there being one writer with one switch rather than of each call site
+   remembering. */
+let _cvMode = 'base';
+/* The artifact identity the current mode loaded: what a save is based on. A
+   write states these back and the server refuses it if they are stale, so a
+   second tab (or a 30-second autosave landing behind a newer save) cannot
+   silently overwrite newer content. */
+let _cvRevision = 0;
+let _cvArtifactId = '';
+/* Application mode only: the application and its tailored-CV metadata. */
+let _appId = '';
+let _appTailored = null;
+let _appDetail = null;
+
+function _appEditMode(){ return _cvMode === 'application'; }
+
+/* ── The one gate for writes to the consultant's own profile material ──
+   (V2 Slice 3, S3-P1-R1 finding 1)
+
+   _persistCvState() routes *CV state* by mode, but the editor also holds actions
+   that write the consultant's shared, base-owned profile material — material no
+   Application and no publication owns a copy of. Those are not CV-state saves,
+   so the one-writer switch never saw them, and each one was checking (or not
+   checking) the mode for itself: the photo upload refused publication mode only,
+   and the profile patch refused nothing at all. Editing one Application could
+   therefore replace the photo and the profile facts every other CV renders from
+   while every artifact's revision and hash stayed put — P-009 displayed as kept
+   and not kept.
+
+   So the question is asked once, here, by name. Any future action that writes
+   base profile material must go through this rather than re-deriving the rule. */
+function _baseProfileWritesAllowed(){
+  return _cvMode === 'base';
+}
+
+function _refuseBaseProfileWrite(action){
+  toast('[!] '+action+' isn’t available here — this view edits one position’s '
+       +'tailored CV, and that change would affect your own CV and every other '
+       +'position. Open your own CV to change it.','#c04040');
+}
+
+/* True once loadProfile()/_enterApplicationEditMode() has fully settled the
+   in-memory photoSrc (and, for the normal path, cv-state). Gates the Publish
+   button so a fast click can't race the async photo load and ship a
+   photo-less snapshot — see loadProfile()'s comment for how that happened. */
+let _profileReady = false;
+
+function openTailoredCv(applicationId){
+  /* Carry the consultant through the reload: an admin/TA session only
+     re-derives identity from ?consultant_id=. */
+  var username = (localStorage.getItem('mpya_username')||'').trim();
+  var url = '/?application=' + encodeURIComponent(applicationId);
+  if(username) url += '&consultant_id=' + encodeURIComponent(username);
+  window.location.href = url;
+}
+
+function _genProgress(text, colour){
+  var el = document.getElementById('genProgress');
+  if(!el) return;
+  el.textContent = text;
+  el.style.color = colour || '#555';
+  el.style.display = text ? 'block' : 'none';
+}
+
+async function _apiError(res){
+  var msg = 'Server error ' + res.status;
+  try{
+    var body = await res.json();
+    var detail = body && body.detail;
+    if(typeof detail === 'string') msg = detail;
+    else if(detail && typeof detail === 'object') msg = detail.message || msg;
+  }catch(e){}
+  return msg;
+}
+
+/* ── Durable generation (V2 Slice 3) ──
+   The request returns 202 with a run to poll; it does NOT hold a connection
+   open while an LLM works. That is the whole point: CloudFront and the ALB both
+   cut a request at a verified 60 seconds and a full CV generation routinely
+   exceeds it, so acceptance is a database row and progress is polled.
+   Re-clicking is safe — an identical request in flight answers 200 and returns
+   the same run rather than starting a second generation. */
+async function _startGeneration(applicationId, btn, navigateWhenReady){
+  var label = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Generating…'; }
+  _genProgress('Starting…');
+  try{
+    var res = await fetch(_API_BASE+'/api/applications/'+encodeURIComponent(applicationId)+'/cv/generate',{
+      method:'POST', credentials:'same-origin'
+    });
+    if(!res.ok) throw new Error(await _apiError(res));
+    var body = await res.json();
+    _genProgress(body.started
+      ? 'Generation queued — this usually takes under a minute.'
+      : 'A generation was already running for this application; watching it.');
+    var done = await _pollGeneration(applicationId);
+    if(done.status === 'ready'){
+      _genProgress('Tailored CV ready.', '#2a7a2a');
+      if(navigateWhenReady){ openTailoredCv(applicationId); return true; }
+      return true;
+    }
+    _genProgress('Generation failed: ' + (done.error_message || done.error_code || 'unknown reason'), '#c04040');
+    return false;
+  }catch(err){
+    _genProgress('Generation failed: ' + err.message, '#c04040');
+    return false;
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = label; }
+  }
+}
+
+/* Poll the durable status. Bounded so a stuck run cannot spin forever; the
+   work stays queued in the database either way, so giving up here loses
+   nothing. */
+async function _pollGeneration(applicationId){
+  for(var attempt = 0; attempt < 90; attempt++){
+    await new Promise(function(r){ setTimeout(r, 2000); });
+    try{
+      var res = await fetch(_API_BASE+'/api/applications/'+encodeURIComponent(applicationId)+'/cv/status',{
+        credentials:'same-origin'
+      });
+      if(!res.ok) continue;
+      var body = await res.json();
+      var tailored = body.tailored_cv || {};
+      if(tailored.status !== 'generating') return tailored;
+      var run = body.run || {};
+      _genProgress('Generating… ' + (run.stage || 'working') + ' (' + (run.progress || 0) + '%)');
+    }catch(e){ /* a transient poll failure is not a generation failure */ }
+  }
+  return {status:'generating', error_message:'still running — reopen this application later'};
+}
+
+/* Close modal on backdrop click */
+document.getElementById('publishConfirmModal').addEventListener('click',function(e){
+  if(e.target===this)closePublishConfirm();
+});
+document.getElementById('publishResultModal').addEventListener('click',function(e){
+  if(e.target===this)closePublishResult();
+});
+
+/* ══════════════════════════════════════════════
+   PROFILE SELECTOR & PERSISTENCE
+══════════════════════════════════════════════ */
+
+const _API_BASE = '';  // same-origin: relative URLs so the session cookie is sent
+
+/* Load the active profile's saved CV state + photo. Identity is fixed by the
+   head script (consultant → own session; admin/TA → ?consultant_id=). There is
+   no in-page user switching — only TAs and admins reach other consultants, and
+   they do so via their dashboards. */
+async function loadProfile(){
+  const username = (localStorage.getItem('mpya_username')||'').trim();
+  const chip = document.getElementById('currentUserChip');
+  const lbl  = document.getElementById('currentUserLabel');
+  if(!username){
+    if(chip) chip.style.display = 'none';
+    _profileReady = true;
+    _updatePublishBtnState();
+    return;  // no identity → saving stays disabled (_stateLoaded never set)
+  }
+  if(chip && lbl){ lbl.textContent = username; chip.style.display = 'inline-flex'; }
+  _cvMode = 'base';
+  try{
+    /* V2 Slice 3: the base CV is a versioned artifact. `revision` is recorded
+       because every save states the revision it is based on and the server
+       refuses a stale one — two tabs can no longer silently overwrite each
+       other. */
+    const res = await fetch(_API_BASE+'/api/cv/base/'+encodeURIComponent(username),
+                            {credentials:'same-origin'});
+    if(res.ok){
+      const artifact = await res.json();
+      _cvRevision = artifact.revision || 0;
+      _cvArtifactId = artifact.id || username;
+      const state = artifact.state || {};
+      if(state && Object.keys(state).length > 0){
+        restoreFormState(state);
+      }
+    }
+    /* Load photo from backend (works even when cv_state has no photoSrc).
+       Awaited — NOT fire-and-forget — so photoSrc is fully settled before
+       _stateLoaded flips true. A fire-and-forget fetch here left a window
+       where a fast Publish click (or even the 30s autosave) could race the
+       in-memory photoSrc and capture/persist a photo-less state even though a
+       photo exists on disk (this is what happened in manual testing: publish
+       shipped photoSrc:null and the viewer + edit mode correctly render
+       whatever was actually stored, i.e. nothing). */
+    const photoUrl = _API_BASE+'/api/profiles/'+encodeURIComponent(username)+'/photo';
+    try{
+      const pr = await fetch(photoUrl);
+      if(pr.ok && !photoSrc){
+        photoSrc = photoUrl+'?t='+Date.now();
+        document.getElementById('photoPrompt').style.display = 'none';
+        var img = document.getElementById('photoPrev'); img.src = photoSrc; img.style.display = 'block';
+        render();
+      }
+    }catch(e){}
+    /* Stored state (incl. photo) has now been consulted — saves are safe. */
+    _stateLoaded = true;
+  }catch(e){}
+  _profileReady = true;
+  _updatePublishBtnState();
+}
+
+/* ── Capture all form state into a plain object ── */
+function captureFormState(){
+  return {
+    iName:v('iName'), iRole:v('iRole'), iEmail:v('iEmail'), iPhone:v('iPhone'), iAvail:v('iAvail'),
+    iSummary:v('iSummary'),
+    eduList:eduList.map(function(e){ return { degree:e.degree, institution:e.institution, from:e.from, to:e.to, description:e.description }; }),
+    iFtText:v('iFtText'), iFtEmail:v('iFtEmail'), iFtPhone:v('iFtPhone'),
+    skills:{ main:skills.main.slice(), other:skills.other.slice(), tool:skills.tool.slice() },
+    expList:expList.map(function(e){
+      return { company:e.company, location:e.location, from:e.from, to:e.to,
+        assignments:e.assignments.map(function(a){
+          return { role:a.role, period:a.period, descHtml:a.descHtml, tools:a.tools };
+        })
+      };
+    }),
+    langList:langList.map(function(l){ return { name:l.name, level:l.level }; }),
+    courseList:courseList.map(function(c){ return { name:c.name }; }),
+    /* Without its `?t=` cache-buster (S22). That query exists only so the <img>
+       refetches, and every page load mints a fresh one, so saving it made the
+       first autosave after each load a "change" that bumped the revision. */
+    photoSrc: (photoSrc && !photoSrc.startsWith('data:')) ? photoSrc.split('?')[0] : null
+  };
+}
+
+/* ── Restore all form state from a saved object ── */
+function restoreFormState(s){
+  function sv(id,val){
+    var el = document.getElementById(id);
+    if(el && val != null && val !== '') el.value = String(val);
+  }
+  sv('iName',s.iName); sv('iRole',s.iRole); sv('iEmail',s.iEmail);
+  sv('iPhone',s.iPhone); sv('iAvail',s.iAvail); sv('iSummary',s.iSummary);
+  sv('iFtText',s.iFtText); sv('iFtEmail',s.iFtEmail); sv('iFtPhone',s.iFtPhone);
+  eduList = []; eduId = 0;
+  if(s.eduList){ s.eduList.forEach(function(e){ eduList.push({ id:eduId++, degree:e.degree||'', institution:e.institution||'', from:e.from||'', to:e.to||'', description:e.description||'' }); }); }
+  renderEduList();
+
+  if(s.skills){
+    ['main','other','tool'].forEach(function(t){
+      if(s.skills[t] && s.skills[t].length){ skills[t] = s.skills[t].slice(); renderSkillInputs(t); }
+    });
+  }
+  expList = []; expId = 0; assignId = 0;
+  if(s.expList){ s.expList.forEach(function(e){
+    expList.push({ id:expId++, company:e.company||'', location:e.location||'', from:e.from||'', to:e.to||'',
+      assignments:(e.assignments||[]).map(function(a){
+        return { id:assignId++, role:a.role||'', period:a.period||'', descHtml:a.descHtml||'', tools:a.tools||'' };
+      })
+    });
+  }); }
+  renderExpList();
+  langList = []; langId = 0;
+  if(s.langList){ s.langList.forEach(function(l){ langList.push({ id:langId++, name:l.name||'', level:l.level||'' }); }); }
+  renderLangList();
+  courseList = []; courseId = 0;
+  if(s.courseList){ s.courseList.forEach(function(c){ courseList.push({ id:courseId++, name:c.name||'' }); }); }
+  renderCourseList();
+  if(s.photoSrc && !s.photoSrc.startsWith('data:')){
+    photoSrc = s.photoSrc.split('?')[0]+'?t='+Date.now();
+    document.getElementById('photoPrompt').style.display = 'none';
+    var img = document.getElementById('photoPrev'); img.src = photoSrc; img.style.display = 'block';
+  }
+  render();
+}
+
+/* Set true once loadProfile() has finished consulting the stored cv-state.
+   Until then the form is still at its blank defaults, and saving would clobber
+   good data — so every save path is gated on this flag. */
+let _stateLoaded = false;
+
+/* True only when the captured state carries real content. A form that is empty
+   apart from the default style dropdowns must never overwrite a populated
+   cv_state.json (that is exactly the data-loss bug this guards against). */
+function _stateHasContent(s){
+  return !!(
+    (s.iName && s.iName.trim()) || (s.iRole && s.iRole.trim()) ||
+    (s.iEmail && s.iEmail.trim()) || (s.iPhone && s.iPhone.trim()) ||
+    (s.iSummary && s.iSummary.trim()) || (s.iAvail && s.iAvail.trim()) ||
+    (s.eduList && s.eduList.length) || (s.expList && s.expList.length) ||
+    (s.langList && s.langList.length) || (s.courseList && s.courseList.length) ||
+    (s.skills && (s.skills.main.length || s.skills.other.length || s.skills.tool.length)) ||
+    s.photoSrc
+  );
+}
+
+/* ── The one CV writer (V2 Slice 3) ──
+   Every save path in this page goes through here, and this is the only place
+   that chooses a URL. That is what makes "tailored work never writes base
+   state" (P-009) structural: there is one switch, on a mode fixed from the URL
+   before anything loaded, rather than a decision each caller could get wrong.
+
+   Returns the request (or null when nothing was sent) so the `beforeunload`
+   caller can fire and forget while ordinary callers can await it.
+
+   `keepalive` is passed only by that caller. It is what lets a request outlive
+   the page, but it caps the body at 64 KB — and a CV with a lot of rich-text
+   experience can exceed that, where the browser rejects the request outright.
+   An ordinary save has a live page to wait for it and needs no such cap. */
+function _persistCvState(keepalive){
+  const username = (localStorage.getItem('mpya_username')||'').trim();
+  if(!username) return null;
+  /* Never persist before the stored state has been loaded, and never persist a
+     blank form over existing data. Both would silently wipe the saved CV. */
+  if(!_stateLoaded) return null;
+  const state = captureFormState();
+  if(!_stateHasContent(state)) return null;
+
+  if(_appEditMode()){
+    if(!_appId || !_cvArtifactId) return null;
+    return fetch(_API_BASE+'/api/applications/'+encodeURIComponent(_appId)+'/cv', {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      credentials:'same-origin', keepalive:!!keepalive,
+      body:JSON.stringify({
+        state: state,
+        expected_revision: _cvRevision,
+        /* Which artifact this edit belongs to. The URL says which application;
+           this says which CV, and the server refuses a mismatch — a consultant
+           with two applications open is otherwise one stale tab away from
+           saving one position's CV over another's. */
+        tailored_cv_id: _cvArtifactId
+      })
+    });
+  }
+  return fetch(_API_BASE+'/api/cv/base/'+encodeURIComponent(username), {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    credentials:'same-origin', keepalive:!!keepalive,
+    body:JSON.stringify({state: state, expected_revision: _cvRevision})
+  });
+}
+
+async function saveCurrentState(){
+  const request = _persistCvState(false);
+  if(!request) return;
+  try{
+    const res = await request;
+    if(res.ok){
+      /* Track the revision forward, or the next autosave sends a stale one and
+         is refused. */
+      const body = await res.json();
+      const artifact = _appEditMode() ? (body.artifact || {}) : body;
+      if(typeof artifact.revision === 'number') _cvRevision = artifact.revision;
+      if(_appEditMode() && body.tailored_cv) _appTailored = body.tailored_cv;
+      _renderAppEditBanner();
+    } else if(res.status === 409){
+      /* Somebody else wrote first. Saying so is the point of the refusal —
+         silently retrying with a fresh revision would perform exactly the
+         overwrite the server just prevented. */
+      toast('[!] ' + (await _apiError(res)), '#c04040');
+    }
+  }catch(e){}
+}
+
+/* Auto-save on window close.
+   sendBeacon with application/json triggers a CORS preflight it cannot wait for.
+   fetch + keepalive:true is designed for exactly this and handles CORS correctly. */
+window.addEventListener('beforeunload', function(){
+  const request = _persistCvState(true);
+  if(request) request.catch(function(){});
+});
+
+/* Periodic auto-save every 30 s — reliable backstop independent of close events */
+setInterval(function(){
+  const username = (localStorage.getItem('mpya_username')||'').trim();
+  if(!username) return;
+  saveCurrentState();
+}, 30000);
+
+/* ══════════════════════════════════════════════
+   CV PUBLISH (ADR-009 / cv-publish.md Session 3)
+══════════════════════════════════════════════ */
+
+function _fmtDate(iso){
+  if(!iso) return '';
+  try{ return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); }
+  catch(e){ return iso; }
+}
+
+async function _publishErrorMessage(res){
+  let msg = 'Server error '+res.status;
+  try{
+    const body = await res.json();
+    const detail = body && body.detail;
+    if(detail && typeof detail === 'object') msg = detail.message || msg;
+    else if(typeof detail === 'string') msg = detail;
+  }catch(e){}
+  return msg;
+}
+
+/* Publish is only offered from inside an Application's tailored-CV editor
+   (S5-P1-R1): a publication is bound to that Application's tailored CV
+   (ADR-009/D-013), so there is nothing to publish from the base-CV editor. */
+function _updatePublishBtnState(){
+  const btn = document.getElementById('publishBtn');
+  if(!btn) return;
+  if(!_appEditMode()){
+    btn.disabled = true;
+    btn.title = 'Open a position\'s tailored CV to publish it';
+  } else if(!_profileReady){
+    btn.disabled = true;
+    btn.title = 'Loading…';
+  } else if(_photoUploadPending){
+    btn.disabled = true;
+    btn.title = 'Uploading photo…';
+  } else if(!_appTailored || !_appTailored.has_content){
+    btn.disabled = true;
+    btn.title = 'Generate this tailored CV before publishing it';
+  } else {
+    btn.disabled = false;
+    btn.title = 'Publish a shareable link for this tailored CV';
+  }
+}
+
+function openPublishConfirm(){
+  if(!_appEditMode() || !_appId){ toast('[!] Open a position\'s tailored CV first (from Jobs, or Applications → Open).','#c04040'); return; }
+  if(!_appTailored || !_appTailored.has_content){ toast('[!] Generate this tailored CV before publishing it.','#c04040'); return; }
+  if(_photoUploadPending){ toast('[!] Please wait for the photo upload to finish.','#c04040'); return; }
+  document.getElementById('publishConfirmMsg').style.display = 'none';
+  const btn = document.getElementById('publishConfirmBtn');
+  btn.disabled = false; btn.textContent = 'Publish';
+  document.getElementById('publishConfirmModal').style.display = 'flex';
+}
+
+function closePublishConfirm(){
+  document.getElementById('publishConfirmModal').style.display = 'none';
+}
+
+/* Publish binds to the Application's tailored CV (ADR-009/D-013, S5-P1-R1):
+   the server derives the consultant, job, title, and a sanitized snapshot
+   from that Application's own tailored CV — the client supplies nothing but
+   which Application to publish. Every call (first publish or republish
+   alike) mints a fresh link and invalidates whatever was shown before. */
+async function confirmPublish(){
+  if(!_appEditMode() || !_appId) return;
+  const btn = document.getElementById('publishConfirmBtn');
+  const errEl = document.getElementById('publishConfirmMsg');
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Publishing…';
+  try{
+    await saveCurrentState();
+    const res = await fetch(_API_BASE+'/api/publications', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body: JSON.stringify({ application_id: _appId })
+    });
+    if(!res.ok) throw new Error(await _publishErrorMessage(res));
+    const pub = await res.json();
+    closePublishConfirm();
+    document.getElementById('publishResultLink').value = pub.url;
+    document.getElementById('publishResultExpiry').textContent =
+      'Link expires ' + _fmtDate(pub.expires_at) + '. Anyone with the link can view this CV until then. '
+      + 'Copy it now — it will not be shown again.';
+    document.getElementById('publishResultModal').style.display = 'flex';
+  }catch(err){
+    errEl.textContent = '[!] ' + err.message;
+    errEl.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Publish';
+}
+
+function closePublishResult(){
+  document.getElementById('publishResultModal').style.display = 'none';
+}
+
+function copyPublishLink(){
+  const input = document.getElementById('publishResultLink');
+  input.select();
+  const done = function(){ toast('Link copied ✓','#3a7a3a'); setTimeout(toastHide,3000); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(input.value).then(done).catch(function(){ document.execCommand('copy'); done(); });
+  } else {
+    document.execCommand('copy'); done();
+  }
+}
+
+/* ── Print / PDF ──
+   The download path for both modes: the browser's own print dialog over the
+   rendered sheet, exactly as the hiring-manager viewer's "Download PDF" works.
+   The current CV is saved first so the PDF and the stored artifact agree.
+
+   It no longer writes a status. V2 Slice 3 retired the
+   `verdicts.application_status` writer this called with 'applied': printing a
+   CV is not applying for a job, and Apply has been a first-class row since
+   Slice 2 (P-008). */
+async function _handlePrintClick(){
+  await saveCurrentState();
+  window.print();
+}
+
+/* ══════════════════════════════════════════════
+   APPLICATION (TAILORED-CV) MODE — V2 Slice 3, P-009
+══════════════════════════════════════════════ */
+
+/* Entered instead of loadProfile(), never alongside it. The reason is the same
+   one publication-edit mode documents: loadProfile() restores the base CV over
+   whatever is on screen *and* flips _stateLoaded, which would re-arm the
+   autosaves — except here the consequence is worse than a wrong document, it is
+   a tailored CV's content being written into the consultant's base CV. So the
+   mode is chosen from the URL before either loader runs, and only one runs.
+
+   The mode is claimed **synchronously, before the first await** (S3-P1-R1
+   finding 1). Setting it only once the artifact had loaded left a window, the
+   whole length of two network round trips, in which the page was visibly an
+   Application editor while _cvMode still said 'base' — so every guard that
+   consults it (see _baseProfileWritesAllowed) was answering for the wrong mode
+   at exactly the time a user is most likely to click something. */
+async function _enterApplicationEditMode(applicationId){
+  const username = (localStorage.getItem('mpya_username')||'').trim();
+  _cvMode = 'application';
+  _appId = applicationId;
+  try{
+    const detailRes = await fetch(_API_BASE+'/api/applications/'+encodeURIComponent(applicationId),
+                                  {credentials:'same-origin'});
+    if(!detailRes.ok) throw new Error(await _apiError(detailRes));
+    _appDetail = await detailRes.json();
+
+    const cvRes = await fetch(_API_BASE+'/api/applications/'+encodeURIComponent(applicationId)+'/cv',
+                              {credentials:'same-origin'});
+    if(cvRes.status === 404){
+      /* The application is real, its CV has not been generated. Offer the
+         generation rather than dropping the user into an empty editor. */
+      _enterApplicationMode(applicationId, null, null);
+      _renderAppEditBanner('No tailored CV yet.');
+      if(confirm('No tailored CV has been generated for this application yet. Generate one now?')){
+        await _startGeneration(applicationId, document.getElementById('appRegenerateBtn'), true);
+      }
+      return;
+    }
+    if(!cvRes.ok) throw new Error(await _apiError(cvRes));
+    const body = await cvRes.json();
+    _enterApplicationMode(applicationId, body.tailored_cv, body.artifact);
+  }catch(err){
+    /* Every failure falls back to the ordinary editor rather than leaving a
+       dead page. Because the mode was claimed up front, leaving it is now an
+       explicit, deliberate step rather than something that happens by not
+       having been set yet — and it is only safe because loadProfile() replaces
+       what is on screen with the base CV before any save can fire. */
+    _cvMode = 'base';
+    _appId = '';
+    _appTailored = null;
+    _cvArtifactId = '';
+    _cvRevision = 0;
+    toast('[!] Could not open that tailored CV ('+err.message+') — opening your own CV instead.','#c04040');
+    loadProfile();
+  }
+  if(!username){ /* identity chip only; the server authorizes independently */ }
+}
+
+function _enterApplicationMode(applicationId, tailored, artifact){
+  _cvMode = 'application';
+  _appId = applicationId;
+  _appTailored = tailored;
+  _cvArtifactId = (tailored && tailored.id) || (artifact && artifact.id) || '';
+  _cvRevision = (artifact && typeof artifact.revision === 'number')
+    ? artifact.revision
+    : ((tailored && tailored.revision) || 0);
+  if(artifact && artifact.state && Object.keys(artifact.state).length){
+    restoreFormState(artifact.state);
+    /* Saving is only safe once the stored state has actually been consulted —
+       the same gate the base loader uses, for the same reason. */
+    _stateLoaded = true;
+  }
+  _profileReady = true;
+  _updatePublishBtnState();
+  _renderAppEditBanner();
+  document.getElementById('appEditBanner').style.display = 'flex';
+}
+
+function _renderAppEditBanner(note){
+  if(!_appEditMode()) return;
+  const job = (_appDetail && _appDetail.job) || {};
+  const who = _appDetail ? _appDetail.consultant_username : '';
+  const position = [job.company, job.title].filter(Boolean).join(' — ') || 'this application';
+  document.getElementById('appEditBannerText').textContent =
+    'Tailored CV for ' + position + (who ? ' · ' + who : '')
+    + ' — your own CV is not affected';
+  const status = document.getElementById('appEditStatus');
+  if(status){
+    const t = _appTailored || {};
+    status.textContent = note || (
+      t.status === 'generating' ? 'generating…'
+      : t.status === 'failed' ? ('last generation failed: ' + (t.error_message || t.error_code || 'unknown'))
+      : ('revision ' + _cvRevision)
+    );
+  }
+}
+
+async function regenerateTailored(){
+  if(!_appEditMode() || !_appId) return;
+  if(!confirm('Generate this tailored CV again from the current profile and job posting? '
+            + 'Unsaved edits here will be replaced when it finishes.')) return;
+  const ok = await _startGeneration(_appId, document.getElementById('appRegenerateBtn'), false);
+  if(ok){
+    /* Reload the artifact rather than guessing what changed: the generation
+       bumped the revision, and continuing to save against the old one would be
+       refused (correctly) on the next autosave. */
+    window.location.reload();
+  } else {
+    _renderAppEditBanner();
+  }
+}
+
+function exitApplicationEdit(){
+  window.location.href = '/';
+}
+
+/* The editor's mode is decided here, once, from the URL — and exactly one
+   loader runs (V2 Slice 3, P-009). The two are mutually exclusive because
+   each restores a different document into the same form and arms the autosaves
+   against a different destination; running both would write a tailored CV
+   into the consultant's base CV.
+
+   ?application=<id> → this application's tailored CV
+   neither           → the consultant's own base CV */
+document.addEventListener('DOMContentLoaded', async function(){
+  if(window.__identityReady){ try{ await window.__identityReady; }catch(e){} }
+  if(window.__me){
+    renderTopNav(document.getElementById('topNav'), window.__me, 'Base CV',
+      (localStorage.getItem('mpya_consultant_id')||'').trim());
+  }
+  const params = new URLSearchParams(location.search);
+  const applicationId = params.get('application');
+  if(applicationId){
+    await _enterApplicationEditMode(applicationId);
+  } else {
+    _updatePublishBtnState();  // shows "Loading your profile…" until loadProfile() settles
+    loadProfile();
+    const _resumeUsername=(localStorage.getItem('mpya_username')||'').trim();
+    if(_resumeUsername) _resumeImportIfInProgress(_resumeUsername);
+  }
+  /* A direct download link: open the tailored CV and go straight to the print
+     dialog. This is the PDF path — the same one the hiring-manager viewer uses
+     — reached without a click for callers that link to it. */
+  if(params.get('print') === '1' && _stateLoaded){
+    setTimeout(function(){ window.print(); }, 400);
+  }
+});
+
+/* ══════════════════════════════
+   CV ASSISTANT CHAT
+══════════════════════════════ */
+var _chatHistory = [];
+
+function toggleChat(){
+  var app = document.querySelector('.app');
+  var open = app.classList.toggle('chat-open');
+  var btn = document.getElementById('chatToggleBtn');
+  if(btn) btn.style.background = open ? '#6e1860' : '';
+  if(open){
+    setTimeout(function(){ document.getElementById('chatInput').focus(); }, 50);
+    // On first open (empty history), greet and surface open profile gaps.
+    if(!_chatHistory.length) _chatShowOpeningMessage();
+  }
+}
+
+async function _chatShowOpeningMessage(){
+  var username = (localStorage.getItem('mpya_username')||'').trim();
+  if(!username) return;
+  try{
+    var res = await fetch(_API_BASE+'/api/chat/gaps/'+encodeURIComponent(username));
+    if(!res.ok) return;
+    var data = await res.json();
+    var gaps = (data.gaps||[]).filter(function(g){ return g.suggested_question; });
+
+    var text;
+    if(!gaps.length){
+      text = 'Hello! Your profile looks complete. How can I help with your CV today?';
+    } else {
+      var lines = ['Hello! Before we dive in, I have '+(gaps.length===1?'a question':'a few questions')+' about your profile:\n'];
+      gaps.forEach(function(g, i){
+        lines.push((i+1)+'. '+g.suggested_question);
+      });
+      lines.push('\nFeel free to answer any of these, or just ask me to tune the CV.');
+      text = lines.join('\n');
+    }
+
+    _chatHideEmpty();
+    _chatAddBubble('assistant', text);
+    _chatHistory.push({role:'assistant', content:text});
+  }catch(e){ /* silent — gap loading is optional */ }
+}
+
+function chatHandleKey(e){
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); chatSend(); }
+}
+
+function _escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function _chatScrollBottom(){
+  var msgs = document.getElementById('chatMsgs');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function _chatHideEmpty(){
+  var el = document.getElementById('chatEmpty');
+  if(el) el.style.display = 'none';
+}
+
+function _chatAddBubble(role, text){
+  _chatHideEmpty();
+  var msgs = document.getElementById('chatMsgs');
+  var div = document.createElement('div');
+  div.className = role === 'user' ? 'chat-msg chat-msg-user' : 'chat-msg chat-msg-assistant';
+  div.innerHTML = _escHtml(text);
+  msgs.appendChild(div);
+  _chatScrollBottom();
+  return div;
+}
+
+function _chatAddThinking(){
+  _chatHideEmpty();
+  var msgs = document.getElementById('chatMsgs');
+  var div = document.createElement('div');
+  div.className = 'chat-msg chat-msg-thinking';
+  div.id = '_chatThinking';
+  div.innerHTML = '<span style="letter-spacing:.2em">···</span>';
+  msgs.appendChild(div);
+  _chatScrollBottom();
+  return div;
+}
+
+function _chatRemoveThinking(){
+  var el = document.getElementById('_chatThinking');
+  if(el) el.remove();
+}
+
+function _chatAddProfileCard(description, patch){
+  _chatHideEmpty();
+  var msgs = document.getElementById('chatMsgs');
+  var card = document.createElement('div');
+  card.className = 'chat-profile-card';
+
+  var lbl = document.createElement('div');
+  lbl.className = 'chat-profile-card-lbl';
+  lbl.textContent = 'Profile update proposed';
+
+  var descEl = document.createElement('div');
+  descEl.textContent = description;
+
+  var btnsEl = document.createElement('div');
+  btnsEl.className = 'chat-profile-card-btns';
+
+  var applyBtn = document.createElement('button');
+  applyBtn.className = 'chat-btn-apply';
+  applyBtn.textContent = 'Apply to profile';
+  // `patch` is kept as a live object in this closure instead of being
+  // serialized into an inline onclick="..." attribute — round-tripping JSON
+  // through HTML-attribute escaping broke whenever the LLM's instruction text
+  // itself contained a double quote (e.g. `to "Coursera"`), throwing inside
+  // JSON.parse before any request was sent.
+  applyBtn.addEventListener('click', function(){ chatApplyProfile(applyBtn, patch); });
+
+  var dismissBtn = document.createElement('button');
+  dismissBtn.className = 'chat-btn-dismiss';
+  dismissBtn.textContent = 'Dismiss';
+  dismissBtn.addEventListener('click', function(){ card.remove(); });
+
+  btnsEl.appendChild(applyBtn);
+  btnsEl.appendChild(dismissBtn);
+  card.appendChild(lbl);
+  card.appendChild(descEl);
+  card.appendChild(btnsEl);
+  msgs.appendChild(card);
+  _chatScrollBottom();
+}
+
+async function chatApplyProfile(btn, patch){
+  var username = (localStorage.getItem('mpya_username')||'').trim();
+  if(!username) return;
+  /* /api/chat/profile-patch rewrites the consultant's profile.md — the facts
+     every future generation reads. Same gate as the photo, for the same reason:
+     it is base profile material, and applying it while editing one Application
+     would silently change every other position's next generation. This one had
+     no mode check at all before S3-P1-R1. */
+  if(!_baseProfileWritesAllowed()){
+    _refuseBaseProfileWrite('Applying a profile update');
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Applying…';
+  try{
+    var res = await fetch(_API_BASE+'/api/chat/profile-patch', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ username: username, patch: patch })
+    });
+    var card = btn.closest('.chat-profile-card');
+    if(res.ok){
+      card.innerHTML = '<span style="color:#666;font-style:italic">Profile updated.</span>';
+    } else {
+      var errText = 'Could not apply profile update (server error ' + res.status + ').';
+      try{ var j = await res.json(); if(j.detail) errText = j.detail; }catch(x){}
+      btn.disabled = false; btn.textContent = 'Apply to profile';
+      _chatAddBubble('assistant', errText);
+    }
+  }catch(e){
+    btn.disabled = false; btn.textContent = 'Apply to profile';
+    _chatAddBubble('assistant', 'Could not reach the server to apply the profile update. Is the server running?');
+  }
+}
+
+function _chatApplyCVPatch(patch){
+  if(!patch || typeof patch !== 'object') return;
+  var changed = false;
+  Object.keys(patch).forEach(function(id){
+    var el = document.getElementById(id);
+    if(el){ el.value = patch[id]; changed = true; }
+  });
+  if(changed) render();
+}
+
+async function chatSend(){
+  var input = document.getElementById('chatInput');
+  var sendBtn = document.getElementById('chatSendBtn');
+  var msg = input.value.trim();
+  if(!msg || sendBtn.disabled) return;
+
+  var username = (localStorage.getItem('mpya_username')||'').trim();
+  if(!username){ _chatAddBubble('assistant','Please select a profile first.'); return; }
+
+  input.value = ''; input.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  _chatAddBubble('user', msg);
+  _chatHistory.push({ role:'user', content:msg });
+
+  _chatAddThinking();
+
+  /* Collect context */
+  var formState = captureFormState();
+  /* The manual job-description box this used to read was removed with
+     POST /api/generate-cv (V2 Slice 3) — a tailored CV belongs to an
+     application, so there is no loose posting on this page any more. The field
+     was empty whenever the box was collapsed, which was the ordinary case, so
+     the assistant's contract is unchanged; giving it the tailored
+     application's posting is the CV-assistant slice's to do deliberately. */
+  var jobDesc = '';
+
+  try{
+    var res = await fetch(_API_BASE+'/api/chat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        username: username,
+        message: msg,
+        history: _chatHistory.slice(0, -1),
+        cv_state: formState,
+        job_description: jobDesc
+      })
+    });
+
+    _chatRemoveThinking();
+
+    if(!res.ok){
+      _chatAddBubble('assistant','Server error ('+res.status+'). Please try again.');
+      sendBtn.disabled = false; return;
+    }
+
+    var data = await res.json();
+
+    if(data.answer){
+      _chatAddBubble('assistant', data.answer);
+      _chatHistory.push({ role:'assistant', content: data.answer });
+    }
+    if(data.cv_patch && Object.keys(data.cv_patch).length){
+      _chatApplyCVPatch(data.cv_patch);
+      if(!data.answer) _chatAddBubble('assistant', 'Done — I\'ve updated the CV fields.');
+    }
+    if(data.profile_updates && data.profile_updates.length){
+      data.profile_updates.forEach(function(upd){
+        _chatAddProfileCard(upd.description, upd.patch);
+      });
+    } else if(data.profile_update){
+      _chatAddProfileCard(data.profile_update.description, data.profile_update.patch);
+    }
+
+  }catch(e){
+    _chatRemoveThinking();
+    _chatAddBubble('assistant','Could not reach the server.');
+  }
+
+  sendBtn.disabled = false;
+  document.getElementById('chatInput').focus();
+}
+</script>
+</body>
+</html>

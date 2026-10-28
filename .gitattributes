@@ -1,0 +1,13 @@
+# Normalize line endings: store as LF in the repo, check out native per-platform.
+# Prevents the LF/CRLF churn warnings on Windows and keeps diffs/CI deterministic.
+* text=auto eol=lf
+
+# Treat known binaries as binary (never normalize or diff as text).
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

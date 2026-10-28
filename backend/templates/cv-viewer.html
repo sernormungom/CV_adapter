@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>CV</title>
+<!-- Same webfonts as the editor — font parity is part of render parity. -->
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;700&family=Raleway:wght@300;400;600&display=swap" rel="stylesheet">
+<!-- Shared render core (the ONE engine, identical to the editor preview). -->
+<link rel="stylesheet" href="/html/cv-render.css">
+<style>
+/* ── Viewer shell only. The CV sheet itself is styled by cv-render.css. ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Source Sans 3',sans-serif;
+  background:#e9e7e2;            /* calm neutral — a document on a desk */
+  color:#1c1c1c;
+  display:flex;flex-direction:column;min-height:100vh;
+}
+
+/* Slim header bar */
+.viewer-header{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 20px;background:#fff;border-bottom:1px solid #ddd9d2;
+  box-shadow:0 1px 6px rgba(0,0,0,.05);
+}
+.vh-brand{font-family:'Source Serif 4',serif;font-size:13px;color:#fff;background:#972182;padding:4px 10px;border-radius:2px;letter-spacing:.03em;flex-shrink:0}
+.vh-id{min-width:0}
+.vh-name{font-family:'Source Serif 4',serif;font-size:16px;font-weight:600;color:#1c1c1c;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vh-role{font-size:11.5px;color:#888;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vh-actions{display:flex;gap:8px;flex-shrink:0}
+.vbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-family:'Source Sans 3',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border-radius:3px;border:1px solid transparent;transition:all .15s;text-decoration:none}
+.vbtn-primary{background:#972182;color:#fff;border-color:#972182}
+.vbtn-primary:hover{background:#6e1860;border-color:#6e1860}
+.vbtn-ghost{background:#fff;color:#555;border-color:#cfcbc3}
+.vbtn-ghost:hover{border-color:#999;color:#222}
+
+/* Stage that holds the (scaled) sheet, centered */
+.viewer-stage{flex:1;display:flex;flex-direction:column;align-items:center;padding:28px 16px 48px;overflow-x:hidden}
+.sheet-scaler{position:relative}       /* JS sets width/height to the scaled box */
+#cvSheet{transform-origin:top left}     /* JS sets transform:scale(...) on screen */
+
+/* Loading + friendly not-available states */
+.viewer-msg{max-width:460px;margin:14vh auto 0;text-align:center;color:#5a564f;padding:0 22px}
+.viewer-msg h1{font-family:'Source Serif 4',serif;font-size:22px;font-weight:600;color:#33302b;margin-bottom:10px}
+.viewer-msg p{font-size:14px;line-height:1.6}
+.viewer-spinner{width:26px;height:26px;border:3px solid #cfcbc3;border-top-color:#972182;border-radius:50%;margin:0 auto;animation:vspin .8s linear infinite}
+@keyframes vspin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+
+/* Hidden state carriers — cv-render.js reads these via v()/ts(). They never
+   render; they exist only so the shared render() sees the same inputs the
+   editor does. */
+.render-state{position:absolute;width:0;height:0;overflow:hidden;visibility:hidden}
+
+/* ── Print: only the sheet, full size, no shell chrome ── (the shared
+   cv-render.css already handles the .cvs sheet + injected footers + @page). */
+@media print{
+  body{background:#fff!important;display:block!important}
+  .viewer-header,.viewer-msg{display:none!important}
+  .viewer-stage{display:block!important;padding:0!important;overflow:visible!important}
+  .sheet-scaler{width:auto!important;height:auto!important;position:static!important}
+  #cvSheet{transform:none!important}
+}
+</style>
+</head>
+<body>
+
+<header class="viewer-header hidden" id="viewerHeader">
+  <div style="display:flex;align-items:center;gap:12px;min-width:0">
+    <span class="vh-brand">MPYA CV</span>
+    <div class="vh-id">
+      <div class="vh-name" id="vhName"></div>
+      <div class="vh-role" id="vhRole"></div>
+    </div>
+  </div>
+  <div class="vh-actions">
+    <a class="vbtn vbtn-ghost hidden" id="editBtn" href="#">Edit</a>
+    <!-- No `onclick=` here, or on anything else in this shell: the public
+         response's CSP holds `script-src 'self'` with no `'unsafe-inline'`
+         exception, so a browser refuses an inline handler and the button
+         would be visible but dead (S5-P2-R1). Every action is bound from
+         the external html/cv-viewer.js instead. -->
+    <button class="vbtn vbtn-primary" id="downloadBtn">↓ Download PDF</button>
+  </div>
+</header>
+
+<main class="viewer-stage">
+  <!-- Loading / not-available message -->
+  <div class="viewer-msg" id="viewerMsg">
+    <div class="viewer-spinner" id="viewerSpinner"></div>
+  </div>
+  <!-- The document -->
+  <div class="sheet-scaler hidden" id="scaler">
+    <div class="cvs" id="cvSheet"></div>
+  </div>
+</main>
+
+<!-- Hidden inputs the shared render() reads (same IDs the editor uses). -->
+<div class="render-state" aria-hidden="true">
+  <input type="hidden" id="iName"><input type="hidden" id="iRole">
+  <input type="hidden" id="iEmail"><input type="hidden" id="iPhone">
+  <input type="hidden" id="iAvail"><input type="hidden" id="iSummary">
+  <input type="hidden" id="iFtText"><input type="hidden" id="iFtEmail"><input type="hidden" id="iFtPhone">
+  <input type="hidden" id="pfFont"><input type="hidden" id="pfSize"><input type="hidden" id="pfColor"><input type="hidden" id="pfWeight">
+  <input type="hidden" id="skFont"><input type="hidden" id="skSize"><input type="hidden" id="skColor"><input type="hidden" id="skWeight">
+  <input type="hidden" id="exFont"><input type="hidden" id="exSize"><input type="hidden" id="exColor"><input type="hidden" id="exWeight">
+  <input type="hidden" id="edFont"><input type="hidden" id="edSize"><input type="hidden" id="edColor"><input type="hidden" id="edWeight">
+</div>
+
+<!-- The shared render engine, identical to the editor. -->
+<script src="/html/cv-render.js"></script>
+<!-- Viewer logic lives in an external file (never inline) so the public
+     response's Content-Security-Policy can hold `script-src 'self'` with no
+     `'unsafe-inline'` exception — see backend/cv_publish/routes.py. -->
+<script src="/html/cv-viewer.js"></script>
+</body>
+</html>

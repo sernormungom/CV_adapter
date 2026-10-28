@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperCV – Mpya</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#777;--paper:#f5f3ef;--line:#d4d0c8;--warn:#8a5a00;--warn-bg:#fff4d6;--sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif}
+html,body{min-height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+header{background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--serif);font-size:17px;color:#fff;background:var(--acc);padding:5px 14px;border-radius:2px;letter-spacing:.03em}
+.hgroup{display:flex;align-items:center;gap:14px}.whoami{font-size:12px;color:#bbb}
+.hbtn{padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;background:transparent;border:1px solid #555;color:#ccc;text-decoration:none}
+.hbtn:hover{background:#333;border-color:#888;color:#fff}
+main{max-width:1040px;margin:0 auto;padding:30px 20px 70px}
+.page-title{margin-bottom:22px}.page-title h1{font-family:var(--serif);font-size:28px;margin-bottom:5px}.page-title p{color:var(--ink-mid)}
+.state{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:18px 20px;color:var(--ink-mid)}
+.state.error{border-color:#d7a8a8;color:#8a2626}
+.profile{display:none}.profile.show{display:block}
+.section{margin:24px 0}.section>h2{font-family:var(--serif);font-size:21px;margin-bottom:11px;border-bottom:1px solid #9c9890;padding-bottom:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:17px 18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card+.card{margin-top:12px}.card h3{font-family:var(--serif);font-size:18px;line-height:1.25}.sub{color:var(--ink-mid);font-weight:600;margin-top:3px}.meta{font-size:12px;color:var(--ink-soft);margin-top:4px}.summary{line-height:1.5;color:var(--ink-mid);margin-top:10px}
+.field{padding:8px 0;border-bottom:1px solid #e2dfd8}.field:last-child{border-bottom:0}.label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600}.value{line-height:1.45;margin-top:2px;white-space:pre-wrap}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}.chip,.badge{font-size:11px;padding:3px 8px;border-radius:12px;background:#e8e4dc;color:#403d38}.badge{display:inline-block;background:#ead8e7;color:#68145a;font-weight:600;margin-right:5px}.more{font-size:11px;color:var(--ink-soft);padding:3px 2px}
+.block{margin-top:13px;padding-top:12px;border-top:1px solid #ddd9d1}.block.flat{border-top:0;padding-top:3px}.block h4{font-size:14px}.block-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.evidence{margin:9px 0 0 19px;color:var(--ink-mid)}.evidence li{margin:5px 0;line-height:1.4}.ev-type{font-size:10px;text-transform:uppercase;color:var(--ink-soft);font-weight:600;margin-right:5px}
+details.assignments,details.import-notes{margin-top:12px;border-top:1px solid #ddd9d1;padding-top:10px}summary{cursor:pointer;font-weight:600;color:var(--ink-mid)}
+.warning{font-size:12px;color:var(--warn);background:var(--warn-bg);border-left:3px solid #d69a1e;padding:6px 8px;margin-top:8px}.date-note{color:var(--warn);font-size:10px;font-weight:600}.computed{margin-bottom:12px}.computed .warning{margin-top:5px}
+.empty{color:var(--ink-soft);font-style:italic}.import-notes ul{margin:9px 0 0 19px}.import-notes li{margin:5px 0;line-height:1.4}
+.type-label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600}
+label{display:block;font-size:11px;font-weight:600;color:var(--ink-soft);margin:4px 0 2px}
+input,select,textarea{width:100%;padding:6px 8px;font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:2px;background:#fff;margin-top:2px}
+textarea{resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)}
+.chip-x{border:none;background:transparent;color:var(--ink-soft);cursor:pointer;font-weight:700;padding:0 3px;font-size:13px;line-height:1}
+.chip-x:hover{color:#b71c1c}
+.ev-edit{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:3px;background:#fff}
+.quant{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.quant input{width:auto;flex:1;min-width:90px;margin-top:0}
+.block-edit{margin-top:14px;padding-top:13px;border-top:1px solid #ddd9d1}
+.rg-actions,.block-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+button.primary{padding:8px 14px;font-size:12px;font-weight:600;color:#fff;background:var(--acc);border:none;border-radius:2px;cursor:pointer}
+button.primary:hover{background:#6e1860}
+button.primary:disabled{background:#ccc;cursor:default}
+.mini{font-size:11px;font-weight:600;padding:4px 9px;border-radius:2px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink-mid)}
+.mini:hover{border-color:var(--acc);color:var(--acc)}
+.mini.danger:hover{border-color:#b71c1c;color:#b71c1c}
+.mini:disabled{opacity:.5;cursor:default}
+.result{display:none;margin-top:10px;padding:8px 10px;font-size:12px;border-radius:2px}
+.result.show{display:block}
+.result.ok{background:#e8f5e9;border:1px solid #c8e6c9;color:#1b5e20}
+.result.err{background:#ffebee;border:1px solid #ffcdd2;color:#b71c1c}
+.result.info{background:#e3eaf5;border:1px solid #c5d4ea;color:#1a4480}
+.lang-row{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.lang-row input{width:auto;flex:1;min-width:120px;margin-top:0}
+.lang-row select{width:auto;margin-top:0}
+.lang-row label{display:flex;align-items:center;gap:4px;font-weight:400;margin:0;color:var(--ink-mid)}
+.id-actions{display:flex;gap:8px;margin-top:14px}
+@media(max-width:720px){header{padding:0 12px}.whoami{display:none}#topNav{overflow-x:auto}main{padding:22px 12px 50px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">MPYA SuperCV</span>
+  <nav id="topNav" style="display:flex;gap:8px;margin-left:auto;margin-right:14px"></nav>
+  <div class="hgroup">
+    <span class="whoami" id="whoami"></span>
+    <button class="hbtn" id="signOutBtn">Sign out</button>
+  </div>
+</header>
+<main>
+  <div class="page-title">
+    <h1>Career profile</h1>
+    <p>Your factual career record. Every section below is editable.</p>
+  </div>
+  <div class="state" id="state">Loading profile…</div>
+  <div class="warning" id="importBanner" style="display:none;margin-bottom:16px"></div>
+  <div class="profile" id="profile">
+    <section class="section"><h2>Identity</h2><div class="card" id="identity"></div></section>
+    <section class="section"><h2>Career history</h2><div id="career"></div></section>
+    <section class="section"><h2>Education</h2><div class="grid" id="education"></div></section>
+    <section class="section"><h2>Miscellaneous</h2><div class="grid" id="misc"></div></section>
+    <section class="section"><h2>Career goals</h2><div class="card" id="preferences"></div></section>
+    <section class="section" id="notesSection"><h2>Import notes</h2><div class="card" id="notes"></div></section>
+  </div>
+</main>
+<script src="/html/auth-guard.js"></script>
+<script>
+let me = null;
+let consultant = '';
+
+/* S16 (P2a): the identity save round trip. One in-memory whole document,
+   mutated in place by the handlers below and re-rendered through the same
+   renderProfile() as every read-only section. `loadedRevision` /
+   `loadedContentHash` are the pair a save must present unchanged to avoid a
+   409; `loadedSnapshot` is the pristine clone Discard restores. */
+const LANGUAGE_PROFICIENCY = ['native', 'fluent', 'professional', 'conversational', 'basic'];
+let profileDoc = null;
+let loadedSnapshot = null;
+let loadedRevision = null;
+let loadedContentHash = null;
+let languageRowCount = 0;
+
+function esc(value){
+  return String(value == null ? '' : value).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+
+function labelFor(key){
+  return String(key || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function plainValue(value){
+  if(value == null || value === '') return '';
+  if(Array.isArray(value)) return value.map(plainValue).filter(Boolean).join(', ');
+  if(typeof value === 'object'){
+    return Object.keys(value).map(k => labelFor(k) + ': ' + plainValue(value[k])).join(' · ');
+  }
+  if(typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value).replace(/_/g, ' ');
+}
+
+function monthIndex(value){
+  if(value === 'present'){
+    const now = new Date();
+    return now.getUTCFullYear() * 12 + now.getUTCMonth();
+  }
+  const match = /^(\d{4})-(\d{2})$/.exec(String(value || ''));
+  if(!match) return null;
+  return Number(match[1]) * 12 + Number(match[2]) - 1;
+}
+
+/* Each bucket holds {gap_id, text} so a displayed data_conflict gap can carry
+   its own Dismiss control (V3-P-017 decision 5: dismissible where SuperCV
+   shows it, passthrough — i.e. untouched — everywhere else). */
+function conflictBuckets(gaps){
+  const out = {full_name:[],email:[],phone:[],location:[],spoken_languages:[],other:[]};
+  (gaps || []).filter(g => g && g.kind === 'data_conflict' && g.status === 'open').forEach(g => {
+    const text = [g.description,g.suggested_question,g.target_ref].filter(Boolean).join(' ').toLowerCase();
+    let key = 'other';
+    if(/e-?mail/.test(text)) key = 'email';
+    else if(/phone|mobile|telephone/.test(text)) key = 'phone';
+    else if(/language/.test(text)) key = 'spoken_languages';
+    else if(/city|location|country|address/.test(text)) key = 'location';
+    else if(/full name|\bname\b/.test(text)) key = 'full_name';
+    out[key].push({gap_id: g.gap_id, text: g.suggested_question || g.description || 'Conflicting imported information.'});
+  });
+  return out;
+}
+
+function conflictHtml(list){
+  return (list || []).map(c => '<div class="warning">' + esc(c.text)
+    + (c.gap_id ? ' <button type="button" class="mini" id="dismissGap_' + esc(c.gap_id) + '">Dismiss</button>' : '')
+    + '</div>').join('');
+}
+
+function fieldHtml(label, value, conflicts){
+  const rendered = value ? esc(value) : '<span class="empty">Not provided</span>';
+  return '<div class="field"><div class="label">' + esc(label) + '</div>'
+    + '<div class="value">' + rendered + '</div>'
+    + conflictHtml(conflicts)
+    + '</div>';
+}
+
+function editableFieldHtml(id, label, value, conflicts){
+  return '<div class="field"><div class="label">' + esc(label) + '</div>'
+    + '<input id="' + id + '" value="' + esc(value || '') + '">'
+    + conflictHtml(conflicts)
+    + '</div>';
+}
+
+/* `languageRowCount` records how many rows were just rendered so
+   readLanguageRows() can read them back by id without probing the DOM for
+   "does the next id exist" — the id-based stub every client probe in this
+   repo uses auto-vivifies any id it is asked for, so an existence check would
+   never terminate under test. */
+function renderLanguageRows(languages){
+  languageRowCount = languages.length;
+  if(!languageRowCount) return '<div class="empty" style="margin-top:6px">No languages added.</div>';
+  return languages.map((lang, idx) => ''
+    + '<div class="lang-row">'
+    +   '<input id="langName' + idx + '" value="' + esc(lang.language || '') + '" placeholder="Language">'
+    +   '<select id="langProf' + idx + '">'
+    +     LANGUAGE_PROFICIENCY.map(p => '<option value="' + esc(p) + '"'
+          + (p === lang.proficiency ? ' selected' : '') + '>' + esc(labelFor(p)) + '</option>').join('')
+    +   '</select>'
+    +   '<label><input type="checkbox" id="langNative' + idx + '"' + (lang.is_native ? ' checked' : '') + '> Native</label>'
+    +   '<button type="button" class="mini danger" id="removeLang' + idx + '">Remove</button>'
+    + '</div>').join('');
+}
+
+function readLanguageRows(){
+  const languages = [];
+  for(let idx = 0; idx < languageRowCount; idx += 1){
+    const language = (document.getElementById('langName' + idx).value || '').trim();
+    if(!language) continue;
+    languages.push({
+      language,
+      proficiency: document.getElementById('langProf' + idx).value,
+      is_native: !!document.getElementById('langNative' + idx).checked,
+    });
+  }
+  return languages;
+}
+
+/* S18: `personal_interests` reuses the spoken-languages row shape (add/remove
+   free-text rows) without a proficiency select or a Native checkbox — the
+   field itself is a plain `array<string>` (schema §2.2). */
+let interestRowCount = 0;
+
+function renderInterestRows(interests){
+  interestRowCount = interests.length;
+  if(!interestRowCount) return '<div class="empty" style="margin-top:6px">No personal interests added.</div>';
+  return interests.map((interest, idx) => ''
+    + '<div class="lang-row">'
+    +   '<input id="interest' + idx + '" value="' + esc(interest || '') + '" placeholder="Interest">'
+    +   '<button type="button" class="mini danger" id="removeInterest' + idx + '">Remove</button>'
+    + '</div>').join('');
+}
+
+function readInterestRows(){
+  const interests = [];
+  for(let idx = 0; idx < interestRowCount; idx += 1){
+    const value = (document.getElementById('interest' + idx).value || '').trim();
+    if(value) interests.push(value);
+  }
+  return interests;
+}
+
+/* Reads the plain identity inputs and the language rows off the DOM into
+   `profileDoc`, the one in-memory document every handler mutates. Called
+   before any structural re-render (add/remove a language row, dismiss a gap)
+   so in-progress text edits are not lost, and before Save. */
+function syncIdentityIntoDoc(){
+  const identity = profileDoc.identity || (profileDoc.identity = {});
+  identity.full_name = (document.getElementById('idFullName').value || '').trim();
+  identity.email = (document.getElementById('idEmail').value || '').trim();
+  identity.phone = (document.getElementById('idPhone').value || '').trim();
+  const location = identity.location || (identity.location = {});
+  location.city = (document.getElementById('idCity').value || '').trim();
+  location.country = (document.getElementById('idCountry').value || '').trim();
+  identity.spoken_languages = readLanguageRows();
+  identity.personal_interests = readInterestRows();
+}
+
+/* S17 extends the same read-back-at-save idiom to the whole document instead
+   of Identity's handful of flat fields (super-cv.md, s17.md "Relevant
+   behavior"). `saveIdentity`/`discardIdentity` were S16 names for functions
+   that already operated on the whole document; this is the rename S17's brief
+   asked for, done once rather than after a third section exists. */
+function syncProfileIntoDoc(){
+  syncIdentityIntoDoc();
+  syncCareerIntoDoc();
+  syncEducationIntoDoc();
+  syncPreferencesIntoDoc();
+}
+
+function addLanguageRow(){
+  syncProfileIntoDoc();
+  profileDoc.identity.spoken_languages.push({language: '', proficiency: LANGUAGE_PROFICIENCY[0], is_native: false});
+  renderIdentity(profileDoc);
+}
+
+function removeLanguageRow(idx){
+  syncProfileIntoDoc();
+  profileDoc.identity.spoken_languages.splice(idx, 1);
+  renderIdentity(profileDoc);
+}
+
+function addInterestRow(){
+  syncProfileIntoDoc();
+  profileDoc.identity.personal_interests = profileDoc.identity.personal_interests || [];
+  profileDoc.identity.personal_interests.push('');
+  renderIdentity(profileDoc);
+}
+
+function removeInterestRow(idx){
+  syncProfileIntoDoc();
+  profileDoc.identity.personal_interests.splice(idx, 1);
+  renderIdentity(profileDoc);
+}
+
+/* Dismiss never claims to have resolved a data_conflict gap it cannot verify
+   (V3-P-017 decision 5) — it declines the gap, it does not resolve it. Like
+   every other identity edit this only mutates the in-memory document; it
+   takes effect on the next explicit Save. */
+function dismissGap(gapId){
+  syncProfileIntoDoc();
+  (profileDoc.gaps || []).forEach(g => { if(g && g.gap_id === gapId) g.status = 'declined'; });
+  renderIdentity(profileDoc);
+}
+
+function show(el, kind, text){
+  el.className = 'result show ' + kind;
+  el.textContent = text;
+}
+
+async function saveProfile(){
+  const msg = document.getElementById('identityMsg');
+  const btn = document.getElementById('saveIdentityBtn');
+  syncProfileIntoDoc();
+  btn.disabled = true;
+  try{
+    const response = await fetch('/api/super-cv/' + encodeURIComponent(consultant), {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({profile: profileDoc, revision: loadedRevision, content_hash: loadedContentHash}),
+    });
+    let body = null;
+    try{ body = await response.json(); }catch(_){ body = null; }
+    if(!response.ok){
+      const detail = body && body.detail;
+      const message = typeof detail === 'string' ? detail : 'Could not save this profile.';
+      /* A 409 is a real conflict, not a retryable request error — offer
+         reload rather than inviting another Save with the same stale
+         revision/hash (acceptance #3). */
+      if(response.status === 409){
+        msg.className = 'result show err';
+        msg.innerHTML = esc(message) + ' <button type="button" class="mini" id="reloadStaleBtn">Reload</button>';
+        document.getElementById('reloadStaleBtn').addEventListener('click', loadProfile);
+      } else {
+        show(msg, 'err', message);
+      }
+      return;
+    }
+    applyLoadedArtifact(body);
+    show(document.getElementById('identityMsg'), 'ok', 'Saved.');
+  }catch(error){
+    show(msg, 'err', error.message);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function discardProfile(){
+  profileDoc = JSON.parse(JSON.stringify(loadedSnapshot));
+  renderProfile(profileDoc);
+  show(document.getElementById('identityMsg'), 'info', 'Discarded — reverted to the last loaded version.');
+}
+
+function renderIdentity(profile){
+  const identity = profile.identity || {};
+  const location = identity.location || {};
+  const languages = identity.spoken_languages || [];
+  const conflicts = conflictBuckets(profile.gaps);
+  document.getElementById('identity').innerHTML = ''
+    + editableFieldHtml('idFullName', 'Full name', identity.full_name, conflicts.full_name)
+    + fieldHtml('Preferred name', plainValue(identity.preferred_name), [])
+    + editableFieldHtml('idEmail', 'Email', identity.email, conflicts.email)
+    + editableFieldHtml('idPhone', 'Phone', identity.phone, conflicts.phone)
+    + editableFieldHtml('idCity', 'City', location.city, conflicts.location)
+    + editableFieldHtml('idCountry', 'Country', location.country, [])
+    + '<div class="field"><div class="label">Spoken languages</div>'
+    +   '<div id="langRows">' + renderLanguageRows(languages) + '</div>'
+    +   '<button type="button" class="mini" id="addLanguageBtn">+ Add language</button>'
+    +   conflictHtml(conflicts.spoken_languages)
+    + '</div>'
+    + '<div class="field"><div class="label">Personal interests</div>'
+    +   '<div id="interestRows">' + renderInterestRows(identity.personal_interests || []) + '</div>'
+    +   '<button type="button" class="mini" id="addInterestBtn">+ Add interest</button>'
+    + '</div>'
+    + conflictHtml(conflicts.other)
+    + '<div class="id-actions">'
+    +   '<button type="button" class="primary" id="saveIdentityBtn">Save</button>'
+    +   '<button type="button" class="mini" id="discardIdentityBtn">Discard</button>'
+    + '</div>'
+    + '<div class="result" id="identityMsg"></div>';
+
+  document.getElementById('addLanguageBtn').addEventListener('click', addLanguageRow);
+  document.getElementById('addInterestBtn').addEventListener('click', addInterestRow);
+  document.getElementById('saveIdentityBtn').addEventListener('click', saveProfile);
+  document.getElementById('discardIdentityBtn').addEventListener('click', discardProfile);
+  languages.forEach((_, idx) => {
+    document.getElementById('removeLang' + idx).addEventListener('click', () => removeLanguageRow(idx));
+  });
+  (identity.personal_interests || []).forEach((_, idx) => {
+    document.getElementById('removeInterest' + idx).addEventListener('click', () => removeInterestRow(idx));
+  });
+  [].concat(conflicts.full_name, conflicts.email, conflicts.phone, conflicts.location,
+    conflicts.spoken_languages, conflicts.other).forEach(c => {
+    if(!c.gap_id) return;
+    const dismissBtn = document.getElementById('dismissGap_' + c.gap_id);
+    if(dismissBtn) dismissBtn.addEventListener('click', () => dismissGap(c.gap_id));
+  });
+}
+
+/* S17 (P2b): career-history editing. S16's `tagsFor` (one merged display
+   list from six schema fields) and the bounded `+N more` previews do not
+   survive an editor (s17.md "Relevant behavior") — each of the six typed
+   fields gets its own chip editor writing back to its own field, and every
+   evidence item and chip stays reachable, never hidden behind a count
+   (acceptance #3, #7).
+
+   Role groups, blocks and evidence items are keyed by their schema-stable ID
+   rather than array position: a structural add/delete anywhere in the tree
+   would otherwise invalidate every index below it. A not-yet-saved object
+   (blank ID, schema §2.6) gets one synthetic per-session key instead —
+   `objectKeys` (object identity -> key) and `keyRegistry` (key -> object)
+   below — carried only in DOM element ids, never written into the document a
+   save sends. */
+
+const INDUSTRY_VOCAB = ['automotive','aerospace','defense','heavy_vehicles','telecom','energy',
+  'power_generation','manufacturing','medical_devices','pharmaceuticals','finance','fintech',
+  'insurance','retail','consumer_software','enterprise_software','ai_ml','public_sector',
+  'education','research','consulting','other'];
+const DOMAIN_EXAMPLES = ['embedded systems','safety-critical software','autonomous driving',
+  'control systems','turbine engine control','signal processing','cloud infrastructure',
+  'data engineering','machine learning','AI-assisted development','developer tooling',
+  'telecom systems','industrial automation','robotics','systems architecture'];
+const PROCESS_STANDARD_VOCAB = ['ISO 26262','ISO 9001','ISO 27001','IEC 61508','IEC 62304',
+  'DO-178C','V-model','Agile','Scrum','SAFe','Kanban','DevOps','CMMI','6sigma (DMAIC)','TOPS 8D'];
+const SENIORITY_VOCAB = ['junior','mid','senior','staff','principal','lead','manager','director','executive'];
+const EMPLOYMENT_TYPE_VOCAB = ['permanent','fixed_term','contract','consultant_via_employer',
+  'freelance','internship','academic','personal_project','open_source','other'];
+const BLOCK_TYPE_VOCAB = ['technical_delivery','technical_leadership','people_management',
+  'project_management','innovation','teaching_mentoring','research','other'];
+const EDUCATION_TYPE_VOCAB = ['degree','certification','course','training','bootcamp','other'];
+const EVIDENCE_TYPE_STARTERS = {
+  responsibility: 'I was responsible for…', achievement: 'I delivered…',
+  impact: 'This resulted in…', artifact: 'I built…', decision: 'I decided to…',
+};
+const EVIDENCE_TYPES = Object.keys(EVIDENCE_TYPE_STARTERS);
+const BLOCK_CHIP_FIELDS = [
+  {field: 'domains', label: 'Domains', suggest: true},
+  {field: 'industries', label: 'Industries', suggest: true},
+  {field: 'languages', label: 'Languages', suggest: false},
+  {field: 'tools', label: 'Tools', suggest: false},
+  {field: 'processes_standards', label: 'Standards / processes', suggest: true},
+  {field: 'verification_validation', label: 'Verification & validation', suggest: false},
+];
+const CHIP_ID_SLUG = {
+  domains: 'Domains', industries: 'Industries', languages: 'Languages',
+  tools: 'Tools', processes_standards: 'Processes', verification_validation: 'Vnv',
+};
+
+let syntheticKeyCounter = 0;
+const objectKeys = new WeakMap();
+const keyRegistry = new Map();
+
+function stableKey(obj, idField){
+  const existing = obj[idField];
+  if(existing){ keyRegistry.set(existing, obj); return existing; }
+  if(!objectKeys.has(obj)){
+    syntheticKeyCounter += 1;
+    objectKeys.set(obj, 'new' + syntheticKeyCounter);
+  }
+  const key = objectKeys.get(obj);
+  keyRegistry.set(key, obj);
+  return key;
+}
+
+function byKey(key){ return keyRegistry.get(key) || null; }
+
+function allBlocks(profile){
+  const out = [];
+  ((profile.career_history || {}).role_groups || []).forEach(rg => (rg.blocks || []).forEach(b => out.push(b)));
+  return out;
+}
+
+/* Acceptance #3: the extendable vocabularies (domains, industries,
+   processes_standards) suggest the schema's seed vocabulary plus whatever
+   value already appears anywhere else in this document; the other three
+   chip fields have no controlled vocabulary at all, so they get no
+   suggestion list. */
+function suggestionsFor(field, profile){
+  if(field !== 'domains' && field !== 'industries' && field !== 'processes_standards') return null;
+  const seed = field === 'domains' ? DOMAIN_EXAMPLES
+    : field === 'industries' ? INDUSTRY_VOCAB : PROCESS_STANDARD_VOCAB;
+  const set = new Set(seed);
+  allBlocks(profile).forEach(b => (b[field] || []).forEach(v => v && set.add(v)));
+  if(field === 'industries'){
+    ((profile.career_history || {}).role_groups || [])
+      .forEach(rg => ((rg.organization || {}).industries || []).forEach(v => v && set.add(v)));
+    ((profile.preferences || {}).target_industries || []).forEach(v => v && set.add(v));
+  }
+  return Array.from(set).sort();
+}
+
+// ── Dates: month + year selects with a Present checkbox on `ended` ────────
+
+const DATE_MIN_YEAR = 1950;
+
+function yearOptions(selected){
+  const currentYear = new Date().getUTCFullYear();
+  let out = '<option value="">Year</option>';
+  for(let y = currentYear + 1; y >= DATE_MIN_YEAR; y -= 1){
+    out += '<option value="' + y + '"' + (String(y) === selected ? ' selected' : '') + '>' + y + '</option>';
+  }
+  return out;
+}
+
+function monthOptions(selected){
+  let out = '<option value="">Month</option>';
+  for(let m = 1; m <= 12; m += 1){
+    const mm = String(m).padStart(2, '0');
+    out += '<option value="' + mm + '"' + (mm === selected ? ' selected' : '') + '>' + mm + '</option>';
+  }
+  return out;
+}
+
+function splitDateYm(value){
+  const raw = String(value == null ? '' : value);
+  if(raw === 'present') return {year: '', month: '', present: true};
+  const full = /^(\d{4})-(\d{2})$/.exec(raw);
+  if(full) return {year: full[1], month: full[2], present: false};
+  const yearOnly = /^(\d{4})$/.exec(raw);
+  if(yearOnly) return {year: yearOnly[1], month: '', present: false};
+  return {year: '', month: '', present: false};
+}
+
+function dateFieldHtml(idPrefix, label, value, allowPresent){
+  const parts = splitDateYm(value);
+  const missingMonth = !!parts.year && !parts.month && !parts.present;
+  const present = allowPresent
+    ? '<label><input type="checkbox" id="' + idPrefix + 'Present"'
+      + (parts.present ? ' checked' : '') + '> Present</label>' : '';
+  return '<div class="field"><div class="label">' + esc(label) + '</div>'
+    + '<div class="lang-row">'
+    +   '<select id="' + idPrefix + 'Year">' + yearOptions(parts.year) + '</select>'
+    +   '<select id="' + idPrefix + 'Month">' + monthOptions(parts.month) + '</select>'
+    +   present
+    + '</div>'
+    + (missingMonth ? '<span class="date-note">month needed</span>' : '')
+    + '</div>';
+}
+
+function readDateYm(idPrefix, allowPresent){
+  if(allowPresent){
+    const presentEl = document.getElementById(idPrefix + 'Present');
+    if(presentEl && presentEl.checked) return 'present';
+  }
+  const year = document.getElementById(idPrefix + 'Year').value;
+  const month = document.getElementById(idPrefix + 'Month').value;
+  if(!year) return '';
+  return month ? (year + '-' + month) : year;
+}
+
+function wireDateField(idPrefix, allowPresent, onChange){
+  document.getElementById(idPrefix + 'Year').addEventListener('change', onChange);
+  document.getElementById(idPrefix + 'Month').addEventListener('change', onChange);
+  if(allowPresent) document.getElementById(idPrefix + 'Present').addEventListener('change', onChange);
+}
+
+/* A date, a Present toggle, or a vocabulary select can flip a computed
+   warning or the quantification block's visibility (acceptance #4, #8) — so,
+   unlike a plain text field that is only read back at Save, this syncs the
+   whole document immediately and re-renders Career history. */
+function onCareerFieldChanged(){
+  syncProfileIntoDoc();
+  renderCareer(profileDoc);
+}
+
+function selectHtml(id, options, selected, allowUnset){
+  const blank = allowUnset ? ('<option value=""' + (selected ? '' : ' selected') + '>— not set —</option>') : '';
+  return '<select id="' + id + '">' + blank + options.map(opt => '<option value="' + esc(opt) + '"'
+    + (opt === selected ? ' selected' : '') + '>' + esc(labelFor(opt)) + '</option>').join('') + '</select>';
+}
+
+function selectHtmlWithLabels(id, values, selected, labels){
+  return '<select id="' + id + '">' + values.map(v => '<option value="' + esc(v) + '"'
+    + (v === selected ? ' selected' : '') + '>' + esc(labels[v] || labelFor(v)) + '</option>').join('') + '</select>';
+}
+
+// ── Chip editors: one per typed field, never the merged display list ─────
+//
+// S19: compact by default — chips plus a small "+ Add" control, no
+// permanently-visible input. "+ Add" swaps that control for an input
+// (keeping the suggestion datalist) plus Accept/Cancel; Enter mirrors
+// Accept, Escape mirrors Cancel. Closing back to compact never runs through
+// a full renderCareer()/renderPreferences() when nothing changed (Cancel,
+// Escape, or an Accept with a blank value) — only an actual add does, which
+// naturally rebuilds this markup compact again.
+
+function chipEditorHtml(prefix, values, suggestions){
+  const list = values || [];
+  const chips = list.map((v, idx) => '<span class="chip">' + esc(v)
+    + ' <button type="button" class="chip-x" id="' + prefix + 'Remove' + idx + '">×</button></span>').join('');
+  const datalistId = prefix + 'List';
+  const datalist = suggestions && suggestions.length
+    ? '<datalist id="' + datalistId + '">'
+      + suggestions.map(s => '<option value="' + esc(s) + '">').join('') + '</datalist>'
+    : '';
+  return (chips ? '<div class="chips" id="' + prefix + 'Chips">' + chips + '</div>' : '')
+    + '<div id="' + prefix + 'Compact"><button type="button" class="mini" id="' + prefix + 'AddBtn">+ Add</button></div>'
+    + '<div class="lang-row" id="' + prefix + 'Open" style="display:none">'
+    +   '<input id="' + prefix + 'Input"' + (datalist ? ' list="' + datalistId + '"' : '') + ' placeholder="Add…">'
+    +   '<button type="button" class="mini" id="' + prefix + 'Accept">Accept</button>'
+    +   '<button type="button" class="mini" id="' + prefix + 'Cancel">Cancel</button>'
+    + '</div>' + datalist;
+}
+
+function openChipAdder(prefix){
+  document.getElementById(prefix + 'Compact').style.display = 'none';
+  document.getElementById(prefix + 'Open').style.display = '';
+  const input = document.getElementById(prefix + 'Input');
+  input.value = '';
+  input.focus();
+}
+
+function closeChipAdder(prefix){
+  document.getElementById(prefix + 'Open').style.display = 'none';
+  document.getElementById(prefix + 'Input').value = '';
+  document.getElementById(prefix + 'Compact').style.display = '';
+}
+
+function wireChipAdder(prefix, onAccept){
+  document.getElementById(prefix + 'AddBtn').addEventListener('click', () => openChipAdder(prefix));
+  document.getElementById(prefix + 'Cancel').addEventListener('click', () => closeChipAdder(prefix));
+  document.getElementById(prefix + 'Accept').addEventListener('click', onAccept);
+  document.getElementById(prefix + 'Input').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); onAccept(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); closeChipAdder(prefix); }
+  });
+}
+
+function wireChipEditor(prefix, blockKey, field, values){
+  wireChipAdder(prefix, () => addChip(blockKey, field));
+  (values || []).forEach((_, idx) => {
+    document.getElementById(prefix + 'Remove' + idx).addEventListener('click', () => removeChip(blockKey, field, idx));
+  });
+}
+
+function addChip(blockKey, field){
+  syncProfileIntoDoc();
+  const owner = byKey(blockKey);
+  if(!owner) return;
+  const prefix = 'blk' + CHIP_ID_SLUG[field] + '_' + blockKey;
+  const raw = (document.getElementById(prefix + 'Input').value || '').trim();
+  if(!raw){ closeChipAdder(prefix); return; }
+  const arr = owner[field] || (owner[field] = []);
+  if(!arr.includes(raw)) arr.push(raw);
+  renderCareer(profileDoc);
+}
+
+function removeChip(blockKey, field, idx){
+  syncProfileIntoDoc();
+  const owner = byKey(blockKey);
+  if(!owner) return;
+  (owner[field] || []).splice(idx, 1);
+  renderCareer(profileDoc);
+}
+
+function addOrgIndustry(rgKey){
+  syncProfileIntoDoc();
+  const rg = byKey(rgKey);
+  if(!rg) return;
+  const org = rg.organization || (rg.organization = {});
+  const prefix = 'rgIndustries_' + rgKey;
+  const raw = (document.getElementById(prefix + 'Input').value || '').trim();
+  if(!raw){ closeChipAdder(prefix); return; }
+  org.industries = org.industries || [];
+  if(!org.industries.includes(raw)) org.industries.push(raw);
+  renderCareer(profileDoc);
+}
+
+function removeOrgIndustry(rgKey, idx){
+  syncProfileIntoDoc();
+  const rg = byKey(rgKey);
+  if(!rg) return;
+  ((rg.organization || {}).industries || []).splice(idx, 1);
+  renderCareer(profileDoc);
+}
+
+// ── New objects: blank IDs, minted server-side on save (schema §2.6) ─────
+
+function newEvidenceItem(){
+  return {evidence_id: '', type: 'responsibility', text: ''};
+}
+
+function newBlock(){
+  return {
+    block_id: '', role_title: '', started: '', ended: '',
+    block_type: BLOCK_TYPE_VOCAB[0], evidence_items: [newEvidenceItem()],
+  };
+}
+
+function newRoleGroup(){
+  return {
+    role_group_id: '', organization: {name: '', industries: []}, display_role_title: '',
+    started: '', ended: '', employment_type: EMPLOYMENT_TYPE_VOCAB[0], blocks: [newBlock()],
+  };
+}
+
+// ── Structural edits: one in-memory document, saved through one call ─────
+
+function addRoleGroup(){
+  syncProfileIntoDoc();
+  const history = profileDoc.career_history || (profileDoc.career_history = {role_groups: []});
+  history.role_groups = history.role_groups || [];
+  history.role_groups.push(newRoleGroup());
+  renderCareer(profileDoc);
+}
+
+/* Acceptance #5: deleting a whole role group can take many positions and
+   evidence items with it, so — unlike every other delete here — it asks
+   first. */
+function deleteRoleGroup(rgKey){
+  if(!confirm('Delete this entire role group, including every position and evidence item under it?')) return;
+  syncProfileIntoDoc();
+  const history = profileDoc.career_history || {};
+  history.role_groups = (history.role_groups || []).filter(rg => stableKey(rg, 'role_group_id') !== rgKey);
+  renderCareer(profileDoc);
+}
+
+function addBlock(rgKey){
+  syncProfileIntoDoc();
+  const rg = byKey(rgKey);
+  if(!rg) return;
+  rg.blocks = rg.blocks || [];
+  rg.blocks.push(newBlock());
+  renderCareer(profileDoc);
+}
+
+/* Deleting a role group's last block deletes the role group with it
+   (acceptance #5) — a role group with zero blocks is not a shape the schema
+   (§1 cardinality) or the generator expects. */
+function deleteBlock(rgKey, blockKey){
+  syncProfileIntoDoc();
+  const rg = byKey(rgKey);
+  if(!rg) return;
+  rg.blocks = (rg.blocks || []).filter(b => stableKey(b, 'block_id') !== blockKey);
+  if(rg.blocks.length === 0){
+    const history = profileDoc.career_history || {};
+    history.role_groups = (history.role_groups || []).filter(x => stableKey(x, 'role_group_id') !== rgKey);
+  }
+  renderCareer(profileDoc);
+}
+
+function addEvidence(blockKey){
+  syncProfileIntoDoc();
+  const block = byKey(blockKey);
+  if(!block) return;
+  block.evidence_items = block.evidence_items || [];
+  block.evidence_items.push(newEvidenceItem());
+  renderCareer(profileDoc);
+}
+
+/* Acceptance #5: the control that would remove a block's last evidence item
+   is unavailable (rendered disabled below) rather than failing at save; this
+   guard means a direct call cannot bypass that either. */
+function deleteEvidence(blockKey, evKey){
+  syncProfileIntoDoc();
+  const block = byKey(blockKey);
+  if(!block || (block.evidence_items || []).length <= 1) return;
+  block.evidence_items = block.evidence_items.filter(ev => stableKey(ev, 'evidence_id') !== evKey);
+  renderCareer(profileDoc);
+}
+
+// ── Reading edited fields back, keyed by stable ID (not array position) ───
+
+function inputValue(id){
+  const el = document.getElementById(id);
+  return el ? (el.value || '').trim() : '';
+}
+
+/* Acceptance #6: a block's `verified` flag records that the consultant
+   confirmed *that* content (schema §2.5.1). Comparing every synced field
+   against the pristine `loadedSnapshot` — not against the previous sync — is
+   what keeps this correct across the several syncs a date change or a chip
+   edit can trigger before the next Save (acceptance #8's live warnings), and
+   what leaves `verified` alone when an edit is undone back to the loaded
+   content rather than clearing it on a change that ended up a no-op. */
+const BLOCK_CONTENT_FIELDS = ['role_title', 'client', 'started', 'ended', 'block_type', 'seniority',
+  'domains', 'industries', 'languages', 'tools', 'processes_standards', 'verification_validation',
+  'evidence_items'];
+
+function findSnapshotBlock(blockId){
+  if(!blockId) return null;
+  const roleGroups = ((loadedSnapshot.career_history || {}).role_groups || []);
+  for(const rg of roleGroups){
+    for(const block of (rg.blocks || [])){
+      if(block.block_id === blockId) return block;
+    }
+  }
+  return null;
+}
+
+function blockContentChanged(block){
+  const original = findSnapshotBlock(block.block_id);
+  if(!original) return true;
+  return BLOCK_CONTENT_FIELDS.some(f => JSON.stringify(block[f] || null) !== JSON.stringify(original[f] || null));
+}
+
+function syncEvidenceIntoDoc(ev){
+  const key = stableKey(ev, 'evidence_id');
+  ev.type = inputValue('evType_' + key) || ev.type;
+  ev.text = inputValue('evText_' + key);
+  if(ev.type === 'impact'){
+    const metric = inputValue('evQMetric_' + key);
+    const value = inputValue('evQValue_' + key);
+    const unit = inputValue('evQUnit_' + key);
+    const baseline = inputValue('evQBaseline_' + key);
+    if(metric || value || unit || baseline) ev.quantification = {metric, value, unit, baseline};
+    else delete ev.quantification;
+  }else{
+    delete ev.quantification;
+  }
+}
+
+function syncBlockIntoDoc(block){
+  const key = stableKey(block, 'block_id');
+  block.role_title = inputValue('blkTitle_' + key);
+  if(block.client){
+    block.client.name = inputValue('blkClientName_' + key);
+    if('department' in block.client) block.client.department = inputValue('blkClientDept_' + key);
+    if('country_code' in block.client) block.client.country_code = inputValue('blkClientCountry_' + key);
+  }
+  block.started = readDateYm('blkStart_' + key, false);
+  block.ended = readDateYm('blkEnd_' + key, true);
+  block.block_type = inputValue('blkType_' + key);
+  block.seniority = inputValue('blkSeniority_' + key);
+  (block.evidence_items || []).forEach(syncEvidenceIntoDoc);
+  if(blockContentChanged(block)) delete block.verified;
+}
+
+function syncRoleGroupIntoDoc(rg){
+  const key = stableKey(rg, 'role_group_id');
+  const org = rg.organization || (rg.organization = {});
+  org.name = inputValue('rgOrgName_' + key);
+  org.country_code = inputValue('rgOrgCountry_' + key);
+  rg.display_role_title = inputValue('rgTitle_' + key);
+  rg.started = readDateYm('rgStart_' + key, false);
+  rg.ended = readDateYm('rgEnd_' + key, true);
+  rg.employment_type = inputValue('rgEmpType_' + key);
+  rg.summary = inputValue('rgSummary_' + key);
+  (rg.blocks || []).forEach(syncBlockIntoDoc);
+}
+
+function syncCareerIntoDoc(){
+  ((profileDoc.career_history || {}).role_groups || []).forEach(syncRoleGroupIntoDoc);
+}
+
+// ── Computed warnings: derived from the edited document, never stored ────
+
+function overlapWarnings(blocks){
+  const warnings = [];
+  for(let i=0;i<blocks.length;i+=1){
+    for(let j=i+1;j<blocks.length;j+=1){
+      const aStart = monthIndex(blocks[i].started), aEnd = monthIndex(blocks[i].ended);
+      const bStart = monthIndex(blocks[j].started), bEnd = monthIndex(blocks[j].ended);
+      if([aStart,aEnd,bStart,bEnd].some(v => v == null)) continue;
+      if(Math.max(aStart,bStart) <= Math.min(aEnd,bEnd)){
+        warnings.push('Overlapping assignment dates: '
+          + (blocks[i].role_title || 'assignment') + ' and '
+          + (blocks[j].role_title || 'assignment') + '.');
+      }
+    }
+  }
+  return warnings;
+}
+
+function careerHoleWarnings(roleGroups){
+  const ordered = roleGroups.map(rg => ({
+    rg:rg, start:monthIndex(rg.started), end:monthIndex(rg.ended)
+  })).filter(x => x.start != null && x.end != null).sort((a,b) => a.start - b.start);
+  const warnings = [];
+  // Measure from the latest end *so far*, not the previous entry's end: a
+  // role group fully contained within (or overlapping) an earlier, longer
+  // one must not manufacture a gap against the group that follows it.
+  let latest = ordered.length ? ordered[0] : null;
+  for(let i=1;i<ordered.length;i+=1){
+    const months = ordered[i].start - latest.end - 1;
+    if(months > 0){
+      const older = ((latest.rg.organization || {}).name || 'an earlier role');
+      const newer = ((ordered[i].rg.organization || {}).name || 'the next role');
+      warnings.push(months + '-month unexplained career gap between ' + older + ' and ' + newer + '.');
+    }
+    if(ordered[i].end > latest.end) latest = ordered[i];
+  }
+  return warnings;
+}
+
+// ── Rendering: evidence, then block, then role group, then the section ───
+
+function evidenceWordMeta(text){
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean).length;
+  const over = words > 60;
+  return {
+    words: words,
+    over: over,
+    label: words + ' words' + (over ? ' — over the ~60-word guidance (advisory; it will not block a save)' : ''),
+  };
+}
+
+function evidenceEditHtml(block, ev){
+  const key = stableKey(ev, 'evidence_id');
+  const canRemove = (block.evidence_items || []).length > 1;
+  const meta = evidenceWordMeta(ev.text);
+  const quant = ev.quantification || {};
+  const quantHtml = ev.type === 'impact' ? ('<div class="quant">'
+    + '<input id="evQMetric_' + key + '" placeholder="Metric" value="' + esc(quant.metric || '') + '">'
+    + '<input id="evQValue_' + key + '" placeholder="Value" value="' + esc(quant.value || '') + '">'
+    + '<input id="evQUnit_' + key + '" placeholder="Unit" value="' + esc(quant.unit || '') + '">'
+    + '<input id="evQBaseline_' + key + '" placeholder="Baseline" value="' + esc(quant.baseline || '') + '">'
+    + '</div>') : '';
+  return '<div class="ev-edit">'
+    + selectHtmlWithLabels('evType_' + key, EVIDENCE_TYPES, ev.type, EVIDENCE_TYPE_STARTERS)
+    + '<textarea id="evText_' + key + '" rows="2" placeholder="What happened">' + esc(ev.text || '') + '</textarea>'
+    + '<div class="meta" id="evMeta_' + key + '"' + (meta.over ? ' style="color:var(--warn)"' : '') + '>' + meta.label + '</div>'
+    + quantHtml
+    + '<button type="button" class="mini danger" id="evRemove_' + key + '"'
+    + (canRemove ? '' : ' disabled') + '>Remove evidence</button>'
+    + '</div>';
+}
+
+function blockEditHtml(block){
+  const key = stableKey(block, 'block_id');
+  const client = block.client;
+  const clientHtml = client ? (''
+    + '<div class="field"><div class="label">Client name</div><input id="blkClientName_' + key + '" value="' + esc(client.name || '') + '"></div>'
+    + ('department' in client ? '<div class="field"><div class="label">Client department</div><input id="blkClientDept_' + key + '" value="' + esc(client.department || '') + '"></div>' : '')
+    + ('country_code' in client ? '<div class="field"><div class="label">Client country</div><input id="blkClientCountry_' + key + '" value="' + esc(client.country_code || '') + '"></div>' : '')
+  ) : '';
+  const chipGroups = BLOCK_CHIP_FIELDS.map(def => {
+    const prefix = 'blk' + CHIP_ID_SLUG[def.field] + '_' + key;
+    const suggestions = def.suggest ? suggestionsFor(def.field, profileDoc) : null;
+    return '<div class="field"><div class="label">' + esc(def.label) + '</div>'
+      + chipEditorHtml(prefix, block[def.field], suggestions) + '</div>';
+  }).join('');
+  const evidenceListHtml = (block.evidence_items || []).map(ev => evidenceEditHtml(block, ev)).join('');
+  const collaboration = block.collaboration
+    ? '<div class="meta">' + esc(plainValue(block.collaboration)) + '</div>' : '';
+  return '<div class="block-edit">'
+    + (block.verified ? '<span class="badge">Verified</span>' : '')
+    + (block.needs_review ? '<span class="badge">Needs review</span>' : '')
+    + '<div class="field"><div class="label">Role title</div><input id="blkTitle_' + key + '" value="' + esc(block.role_title || '') + '"></div>'
+    + clientHtml
+    + dateFieldHtml('blkStart_' + key, 'Started', block.started, false)
+    + dateFieldHtml('blkEnd_' + key, 'Ended', block.ended, true)
+    + '<div class="field"><div class="label">Work type</div>' + selectHtml('blkType_' + key, BLOCK_TYPE_VOCAB, block.block_type, true) + '</div>'
+    + '<div class="field"><div class="label">Seniority</div>' + selectHtml('blkSeniority_' + key, SENIORITY_VOCAB, block.seniority, true) + '</div>'
+    + chipGroups + collaboration
+    + '<div class="label" style="margin-top:10px">Evidence</div>' + evidenceListHtml
+    + '<div class="block-actions">'
+    +   '<button type="button" class="mini" id="blkAddEvidence_' + key + '">+ Add evidence</button>'
+    +   '<button type="button" class="mini danger" id="blkDelete_' + key + '">Delete this position</button>'
+    + '</div>'
+    + '</div>';
+}
+
+function roleGroupEditHtml(rg){
+  const key = stableKey(rg, 'role_group_id');
+  const org = rg.organization || {};
+  const blocks = rg.blocks || [];
+  const overlap = overlapWarnings(blocks).map(w => '<div class="warning">' + esc(w) + '</div>').join('');
+  const industrySuggestions = suggestionsFor('industries', profileDoc);
+  return '<article class="card">'
+    + (rg.needs_review ? '<span class="badge">Needs review</span>' : '')
+    + '<div class="field"><div class="label">Organization</div><input id="rgOrgName_' + key + '" value="' + esc(org.name || '') + '"></div>'
+    + '<div class="field"><div class="label">Country code</div><input id="rgOrgCountry_' + key + '" value="' + esc(org.country_code || '') + '"></div>'
+    + '<div class="field"><div class="label">Industries</div>' + chipEditorHtml('rgIndustries_' + key, org.industries, industrySuggestions) + '</div>'
+    + '<div class="field"><div class="label">Role title</div><input id="rgTitle_' + key + '" value="' + esc(rg.display_role_title || '') + '"></div>'
+    + dateFieldHtml('rgStart_' + key, 'Started', rg.started, false)
+    + dateFieldHtml('rgEnd_' + key, 'Ended', rg.ended, true)
+    + '<div class="field"><div class="label">Employment type</div>' + selectHtml('rgEmpType_' + key, EMPLOYMENT_TYPE_VOCAB, rg.employment_type, true) + '</div>'
+    + '<div class="field"><div class="label">Summary</div><textarea id="rgSummary_' + key + '" rows="2">' + esc(rg.summary || '') + '</textarea></div>'
+    + overlap
+    + blocks.map(b => blockEditHtml(b)).join('')
+    + '<div class="rg-actions">'
+    +   '<button type="button" class="mini" id="rgAddBlock_' + key + '">+ Add position</button>'
+    +   '<button type="button" class="mini danger" id="rgDelete_' + key + '">Delete role group</button>'
+    + '</div>'
+    + '</article>';
+}
+
+/* Acceptance #4's word counter is advisory only, so it updates in place as
+   the consultant types — not through onCareerFieldChanged's full
+   syncProfileIntoDoc()+renderCareer(), which would rebuild the textarea out
+   from under an in-progress keystroke and lose focus/cursor position. */
+function updateEvidenceWordMeta(key, text){
+  const metaEl = document.getElementById('evMeta_' + key);
+  if(!metaEl) return;
+  const textEl = document.getElementById('evText_' + key);
+  const value = text !== undefined ? text : (textEl ? textEl.value : '');
+  const meta = evidenceWordMeta(value);
+  metaEl.textContent = meta.label;
+  metaEl.style.color = meta.over ? 'var(--warn)' : '';
+}
+
+function wireEvidence(block, ev){
+  const blockKeyValue = stableKey(block, 'block_id');
+  const key = stableKey(ev, 'evidence_id');
+  document.getElementById('evType_' + key).addEventListener('change', onCareerFieldChanged);
+  document.getElementById('evText_' + key).addEventListener('input', () => updateEvidenceWordMeta(key));
+  document.getElementById('evRemove_' + key).addEventListener('click', () => deleteEvidence(blockKeyValue, key));
+  // The textarea's initial value comes from the HTML it was just parsed
+  // from; seed the meta div from the known evidence text directly rather
+  // than reading it back, so this doesn't depend on that parse having
+  // already happened.
+  updateEvidenceWordMeta(key, ev.text);
+}
+
+function wireBlock(rg, block){
+  const rgKeyValue = stableKey(rg, 'role_group_id');
+  const key = stableKey(block, 'block_id');
+  wireDateField('blkStart_' + key, false, onCareerFieldChanged);
+  wireDateField('blkEnd_' + key, true, onCareerFieldChanged);
+  document.getElementById('blkType_' + key).addEventListener('change', onCareerFieldChanged);
+  document.getElementById('blkSeniority_' + key).addEventListener('change', onCareerFieldChanged);
+  BLOCK_CHIP_FIELDS.forEach(def => {
+    const prefix = 'blk' + CHIP_ID_SLUG[def.field] + '_' + key;
+    wireChipEditor(prefix, key, def.field, block[def.field]);
+  });
+  document.getElementById('blkAddEvidence_' + key).addEventListener('click', () => addEvidence(key));
+  document.getElementById('blkDelete_' + key).addEventListener('click', () => deleteBlock(rgKeyValue, key));
+  (block.evidence_items || []).forEach(ev => wireEvidence(block, ev));
+}
+
+function wireRoleGroup(rg){
+  const key = stableKey(rg, 'role_group_id');
+  wireDateField('rgStart_' + key, false, onCareerFieldChanged);
+  wireDateField('rgEnd_' + key, true, onCareerFieldChanged);
+  document.getElementById('rgEmpType_' + key).addEventListener('change', onCareerFieldChanged);
+  wireChipAdder('rgIndustries_' + key, () => addOrgIndustry(key));
+  ((rg.organization || {}).industries || []).forEach((_, idx) => {
+    document.getElementById('rgIndustries_' + key + 'Remove' + idx).addEventListener('click', () => removeOrgIndustry(key, idx));
+  });
+  document.getElementById('rgAddBlock_' + key).addEventListener('click', () => addBlock(key));
+  document.getElementById('rgDelete_' + key).addEventListener('click', () => deleteRoleGroup(key));
+  (rg.blocks || []).forEach(block => wireBlock(rg, block));
+}
+
+function renderCareer(profile){
+  const roleGroups = ((profile.career_history || {}).role_groups || []);
+  const target = document.getElementById('career');
+  const holes = careerHoleWarnings(roleGroups);
+  const computed = holes.length ? '<div class="computed">'
+    + holes.map(w => '<div class="warning">' + esc(w) + '</div>').join('') + '</div>' : '';
+  const addRoleGroupControl = '<div class="rg-actions">'
+    + '<button type="button" class="mini" id="addRoleGroupBtn">+ Add employer / role group</button></div>';
+  target.innerHTML = addRoleGroupControl + computed
+    + (roleGroups.length ? roleGroups.map(roleGroupEditHtml).join('')
+      : '<div class="card empty">No career history recorded.</div>');
+
+  document.getElementById('addRoleGroupBtn').addEventListener('click', addRoleGroup);
+  roleGroups.forEach(wireRoleGroup);
+}
+
+/* S18 (P2c): education/miscellaneous editing. One card shape for both
+   sections (s18.md acceptance #1); which section a card renders under is
+   derived from its own `type` on every render, never stored separately
+   (acceptance #2) — the split S15 shipped, unchanged. Keyed by `education_id`
+   the same way G7 keys career-history objects: the stable ID (or, for a
+   not-yet-saved entry, `stableKey`'s synthetic per-session key) is embedded
+   in every field's DOM id, not read back by array position. */
+
+const EDUCATION_CONTENT_FIELDS = ['type', 'institution', 'qualification', 'field_of_study',
+  'location', 'started', 'ended', 'expires_at', 'description'];
+
+function findSnapshotEducation(educationId){
+  if(!educationId) return null;
+  return (loadedSnapshot.education || []).find(e => e.education_id === educationId) || null;
+}
+
+/* `location` is the one object-valued field here: syncEducationEntryIntoDoc
+   always materializes it as {city, country_code}, so a snapshot that never
+   had one and a read-back with both left blank must compare equal — otherwise
+   every save on an untouched entry looks like a content edit. */
+function normalizeEducationFieldValue(field, value){
+  if(field !== 'location') return value || null;
+  const city = ((value || {}).city || '').trim();
+  const country = ((value || {}).country_code || '').trim();
+  return (city || country) ? {city: city, country_code: country} : null;
+}
+
+function educationContentChanged(item){
+  const original = findSnapshotEducation(item.education_id);
+  if(!original) return true;
+  return EDUCATION_CONTENT_FIELDS.some(f =>
+    JSON.stringify(normalizeEducationFieldValue(f, item[f])) !== JSON.stringify(normalizeEducationFieldValue(f, original[f])));
+}
+
+/* Acceptance #7: no empty required field, and no started/ended/expires_at
+   still showing dateFieldHtml's "month needed" note (a year with
+   no month). */
+function educationIsComplete(item){
+  if(!(item.institution || '').trim() || !(item.qualification || '').trim()) return false;
+  return !['started', 'ended', 'expires_at'].some(f => /^\d{4}$/.test(String(item[f] || '')));
+}
+
+function newEducationEntry(type){
+  return {
+    education_id: '', type: type, institution: '', qualification: '', field_of_study: '',
+    location: {city: '', country_code: ''}, started: '', ended: '', expires_at: '', description: '',
+  };
+}
+
+function onEducationFieldChanged(){
+  syncProfileIntoDoc();
+  renderEducation(profileDoc);
+}
+
+function addEducationEntry(defaultType){
+  syncProfileIntoDoc();
+  profileDoc.education = profileDoc.education || [];
+  profileDoc.education.push(newEducationEntry(defaultType));
+  renderEducation(profileDoc);
+}
+
+function deleteEducationEntry(key){
+  syncProfileIntoDoc();
+  profileDoc.education = (profileDoc.education || []).filter(e => stableKey(e, 'education_id') !== key);
+  renderEducation(profileDoc);
+}
+
+/* Acceptance #7: clearing is a one-way ratchet, the same shape as G7's
+   `verified` clear — this editor never sets `needs_review`, it only drops it
+   once the entry the human just edited is both changed from the pristine
+   snapshot and complete. An entry left genuinely incomplete keeps the flag. */
+function syncEducationEntryIntoDoc(item){
+  const key = stableKey(item, 'education_id');
+  item.type = inputValue('eduType_' + key) || item.type;
+  item.institution = inputValue('eduInstitution_' + key);
+  item.qualification = inputValue('eduQualification_' + key);
+  item.field_of_study = inputValue('eduField_' + key);
+  const location = item.location || (item.location = {});
+  location.city = inputValue('eduCity_' + key);
+  location.country_code = inputValue('eduCountry_' + key);
+  item.started = readDateYm('eduStart_' + key, false);
+  item.ended = readDateYm('eduEnd_' + key, true);
+  item.expires_at = readDateYm('eduExpires_' + key, false);
+  item.description = inputValue('eduDescription_' + key);
+  if(educationContentChanged(item) && educationIsComplete(item)) delete item.needs_review;
+}
+
+function syncEducationIntoDoc(){
+  (profileDoc.education || []).forEach(syncEducationEntryIntoDoc);
+}
+
+function educationEditHtml(item){
+  const key = stableKey(item, 'education_id');
+  const location = item.location || {};
+  return '<article class="card">'
+    + (item.needs_review ? '<span class="badge">Needs review</span>' : '')
+    + '<div class="field"><div class="label">Type</div>' + selectHtml('eduType_' + key, EDUCATION_TYPE_VOCAB, item.type, true) + '</div>'
+    + '<div class="field"><div class="label">Institution</div><input id="eduInstitution_' + key + '" value="' + esc(item.institution || '') + '"></div>'
+    + '<div class="field"><div class="label">Qualification</div><input id="eduQualification_' + key + '" value="' + esc(item.qualification || '') + '"></div>'
+    + '<div class="field"><div class="label">Field of study</div><input id="eduField_' + key + '" value="' + esc(item.field_of_study || '') + '"></div>'
+    + '<div class="field"><div class="label">City</div><input id="eduCity_' + key + '" value="' + esc(location.city || '') + '"></div>'
+    + '<div class="field"><div class="label">Country code</div><input id="eduCountry_' + key + '" value="' + esc(location.country_code || '') + '"></div>'
+    + dateFieldHtml('eduStart_' + key, 'Started', item.started, false)
+    + dateFieldHtml('eduEnd_' + key, 'Ended', item.ended, true)
+    + dateFieldHtml('eduExpires_' + key, 'Expires', item.expires_at, false)
+    + '<div class="field"><div class="label">Description</div><textarea id="eduDescription_' + key + '" rows="2">' + esc(item.description || '') + '</textarea></div>'
+    + '<div class="rg-actions"><button type="button" class="mini danger" id="eduDelete_' + key + '">Delete this entry</button></div>'
+    + '</article>';
+}
+
+function wireEducationEntry(item){
+  const key = stableKey(item, 'education_id');
+  document.getElementById('eduType_' + key).addEventListener('change', onEducationFieldChanged);
+  wireDateField('eduStart_' + key, false, onEducationFieldChanged);
+  wireDateField('eduEnd_' + key, true, onEducationFieldChanged);
+  wireDateField('eduExpires_' + key, false, onEducationFieldChanged);
+  document.getElementById('eduDelete_' + key).addEventListener('click', () => deleteEducationEntry(key));
+}
+
+function renderEducation(profile){
+  const all = profile.education || [];
+  const degrees = all.filter(item => item.type === 'degree');
+  const misc = all.filter(item => item.type !== 'degree');
+  const addEducationControl = '<div class="rg-actions">'
+    + '<button type="button" class="mini" id="addEducationBtn">+ Add education</button></div>';
+  const addMiscControl = '<div class="rg-actions">'
+    + '<button type="button" class="mini" id="addMiscBtn">+ Add miscellaneous</button></div>';
+  document.getElementById('education').innerHTML = addEducationControl
+    + (degrees.length ? degrees.map(educationEditHtml).join('') : '<div class="card empty">No education recorded.</div>');
+  document.getElementById('misc').innerHTML = addMiscControl
+    + (misc.length ? misc.map(educationEditHtml).join('') : '<div class="card empty">No certifications, courses, or training recorded.</div>');
+
+  document.getElementById('addEducationBtn').addEventListener('click', () => addEducationEntry('degree'));
+  document.getElementById('addMiscBtn').addEventListener('click', () => addEducationEntry('course'));
+  degrees.forEach(wireEducationEntry);
+  misc.forEach(wireEducationEntry);
+}
+
+/* S18 (P2c): career goals as a real form over `preferences`, replacing the
+   generic key/value dump. `target_roles`/`target_industries` are chip
+   editors reusing `chipEditorHtml` (G7) directly against `profileDoc.preferences`
+   — a singleton, so unlike a block/role-group chip field there is no stable
+   ID to look up by; add/remove mutate `preferences` in place. `avoid_industries`
+   is never read here, so it round-trips through the one whole-document save
+   untouched (acceptance #6); S19 removed the schema's other four unrendered
+   `preferences` fields entirely rather than leaving them unread. */
+
+function addTargetRole(){
+  syncProfileIntoDoc();
+  const preferences = profileDoc.preferences || (profileDoc.preferences = {});
+  const raw = (document.getElementById('prefRolesInput').value || '').trim();
+  if(!raw){ closeChipAdder('prefRoles'); return; }
+  preferences.target_roles = preferences.target_roles || [];
+  if(!preferences.target_roles.includes(raw)) preferences.target_roles.push(raw);
+  renderPreferences(profileDoc);
+}
+
+function removeTargetRole(idx){
+  syncProfileIntoDoc();
+  const preferences = profileDoc.preferences || {};
+  (preferences.target_roles || []).splice(idx, 1);
+  renderPreferences(profileDoc);
+}
+
+function addTargetIndustry(){
+  syncProfileIntoDoc();
+  const preferences = profileDoc.preferences || (profileDoc.preferences = {});
+  const raw = (document.getElementById('prefIndustriesInput').value || '').trim();
+  if(!raw){ closeChipAdder('prefIndustries'); return; }
+  preferences.target_industries = preferences.target_industries || [];
+  if(!preferences.target_industries.includes(raw)) preferences.target_industries.push(raw);
+  renderPreferences(profileDoc);
+}
+
+function removeTargetIndustry(idx){
+  syncProfileIntoDoc();
+  const preferences = profileDoc.preferences || {};
+  (preferences.target_industries || []).splice(idx, 1);
+  renderPreferences(profileDoc);
+}
+
+function onPreferencesFieldChanged(){
+  syncProfileIntoDoc();
+  renderPreferences(profileDoc);
+}
+
+function syncPreferencesIntoDoc(){
+  const preferences = profileDoc.preferences || (profileDoc.preferences = {});
+  preferences.seniority_target = inputValue('prefSeniority');
+  preferences.notes = inputValue('prefNotes');
+}
+
+function renderPreferences(profile){
+  const preferences = profile.preferences || (profile.preferences = {});
+  const target = document.getElementById('preferences');
+  const industrySuggestions = suggestionsFor('industries', profile);
+  target.innerHTML = ''
+    + '<div class="field"><div class="label">Target roles</div>' + chipEditorHtml('prefRoles', preferences.target_roles, null) + '</div>'
+    + '<div class="field"><div class="label">Target industries</div>' + chipEditorHtml('prefIndustries', preferences.target_industries, industrySuggestions) + '</div>'
+    + '<div class="field"><div class="label">Seniority target</div>' + selectHtml('prefSeniority', SENIORITY_VOCAB, preferences.seniority_target, true) + '</div>'
+    + '<div class="field"><div class="label">Notes</div><textarea id="prefNotes" rows="2">' + esc(preferences.notes || '') + '</textarea></div>';
+
+  wireChipAdder('prefRoles', addTargetRole);
+  (preferences.target_roles || []).forEach((_, idx) => {
+    document.getElementById('prefRolesRemove' + idx).addEventListener('click', () => removeTargetRole(idx));
+  });
+  wireChipAdder('prefIndustries', addTargetIndustry);
+  (preferences.target_industries || []).forEach((_, idx) => {
+    document.getElementById('prefIndustriesRemove' + idx).addEventListener('click', () => removeTargetIndustry(idx));
+  });
+  document.getElementById('prefSeniority').addEventListener('change', onPreferencesFieldChanged);
+}
+
+function renderImportNotes(profile){
+  const notes = (profile.gaps || []).filter(g => g && g.status === 'open' && g.kind !== 'data_conflict');
+  const section = document.getElementById('notesSection');
+  if(!notes.length){ section.style.display = 'none'; return; }
+  section.style.display = '';
+  document.getElementById('notes').innerHTML = '<details class="import-notes"><summary>Notes from import ('
+    + notes.length + ')</summary><ul>' + notes.map(g => '<li>'
+      + esc(g.description || g.suggested_question || 'Imported information needs review.')
+      + '</li>').join('') + '</ul></details>';
+}
+
+function renderProfile(profileDocument){
+  renderIdentity(profileDocument);
+  renderCareer(profileDocument);
+  renderEducation(profileDocument);
+  renderPreferences(profileDocument);
+  renderImportNotes(profileDocument);
+  document.getElementById('state').style.display = 'none';
+  document.getElementById('profile').className = 'profile show';
+}
+
+/* The revision/hash a save must still match, plus a pristine clone for
+   Discard. `profileDoc` becomes the live working copy every handler mutates. */
+function applyLoadedArtifact(body){
+  loadedRevision = body.revision;
+  loadedContentHash = body.content_hash;
+  profileDoc = body.profile || {};
+  loadedSnapshot = JSON.parse(JSON.stringify(profileDoc));
+  renderProfile(profileDoc);
+}
+
+async function loadProfile(){
+  const state = document.getElementById('state');
+  if(!consultant){
+    state.textContent = 'Choose a Consultant from an authorized dashboard before opening SuperCV.';
+    return;
+  }
+  try{
+    const response = await fetch('/api/super-cv/' + encodeURIComponent(consultant), {credentials:'same-origin'});
+    let body = null;
+    try{ body = await response.json(); }catch(_){ body = null; }
+    if(!response.ok){
+      const detail = body && body.detail;
+      throw new Error(typeof detail === 'string' ? detail : 'Could not load this profile.');
+    }
+    applyLoadedArtifact(body);
+    state.className = 'state';
+  }catch(error){
+    state.className = 'state error';
+    state.textContent = error.message;
+  }
+}
+
+/* Acceptance #7: an in-flight import must be visible before editing starts —
+   S14 required this for the read-only P1 page and it was never delivered; it
+   matters more now that a completed import can turn into a refused save
+   (acceptance #1). Advisory only: it does not block Save, which the
+   content-hash check already protects. A 404 means no import has ever run. */
+async function loadImportBanner(){
+  const banner = document.getElementById('importBanner');
+  if(!consultant){ banner.style.display = 'none'; return; }
+  try{
+    const response = await fetch(
+      '/api/profiles/' + encodeURIComponent(consultant) + '/cv-import/status',
+      {credentials: 'same-origin'}
+    );
+    if(!response.ok){ banner.style.display = 'none'; return; }
+    const body = await response.json();
+    const status = (body && body.cv_import && body.cv_import.status) || '';
+    if(status === 'processing'){
+      banner.style.display = '';
+      banner.textContent = 'A CV import is still processing for this profile. '
+        + 'If it finishes while you are editing, saving will be refused — reload once it completes.';
+    }else{
+      banner.style.display = 'none';
+    }
+  }catch(_){
+    banner.style.display = 'none';
+  }
+}
+
+document.getElementById('signOutBtn').addEventListener('click', logout);
+
+window.__initReady = (async function init(){
+  me = await requireAuth(['consultant','ta','admin']);
+  document.getElementById('whoami').textContent = me.username + ' · ' + (me.roles || []).join(', ');
+  const wanted = new URLSearchParams(location.search).get('consultant_id') || '';
+  const canViewAs = hasAnyRole(me, ['admin','ta']);
+  if(hasRole(me, 'consultant') && !(canViewAs && wanted)){
+    consultant = me.username;
+  }else if(wanted){
+    const resolved = await resolveConsultantContext(wanted);
+    consultant = resolved.consultant || (hasRole(me, 'consultant') ? me.username : '');
+    if(resolved.error && !consultant){
+      const state = document.getElementById('state');
+      state.className = 'state error';
+      state.textContent = resolved.error;
+    }
+  }
+  renderTopNav(document.getElementById('topNav'), me, 'SuperCV', consultant);
+  await Promise.all([loadProfile(), loadImportBanner()]);
+})();
+</script>
+</body>
+</html>

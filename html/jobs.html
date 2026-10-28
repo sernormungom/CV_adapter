@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jobs – Mpya</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;--grey-dark:#ccc8c0;--grey-mid:#d8d4cc;--sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;--green:#2a7a3b;--red:#b71c1c}
+html,body{min-height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+header{background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--serif);font-size:17px;color:#fff;background:var(--acc);padding:5px 14px;border-radius:2px;letter-spacing:.03em}
+.hgroup{display:flex;align-items:center;gap:14px}
+.whoami{font-size:12px;color:#bbb}
+.hbtn{padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;background:transparent;border:1px solid #555;color:#ccc;text-decoration:none}
+.hbtn:hover{background:#333;border-color:#888;color:#fff}
+main{max-width:960px;margin:0 auto;padding:28px 20px 60px}
+h1{font-family:var(--serif);font-size:24px;margin-bottom:6px}
+.lead{color:var(--ink-mid);margin-bottom:24px}
+.card{background:#f4f3f1;border:1px solid var(--grey-dark);border-radius:3px;padding:20px 22px;margin-bottom:20px}
+.card h2{font-family:var(--serif);font-size:17px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-mid);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:8px 10px;font-family:var(--sans);font-size:13px;border:1px solid var(--grey-dark);border-radius:2px;background:#fff}
+textarea{min-height:150px;resize:vertical;line-height:1.5}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)}
+.frow{display:flex;gap:10px;flex-wrap:wrap}.frow .field{flex:1;min-width:180px}
+button.primary{margin-top:14px;padding:9px 16px;font-size:13px;font-weight:600;color:#fff;background:var(--acc);border:none;border-radius:2px;cursor:pointer}
+button.primary:hover{background:#6e1860}
+button.primary:disabled{background:var(--grey-mid);cursor:default}
+.mini{font-size:11px;font-weight:600;padding:4px 9px;border-radius:2px;border:1px solid var(--grey-dark);background:#fff;cursor:pointer;color:var(--ink-mid)}
+.mini:hover{border-color:var(--acc);color:var(--acc)}
+.mini.danger:hover{border-color:var(--red);color:var(--red)}
+.mini:disabled{opacity:.5;cursor:default}
+.result{display:none;margin-top:12px;padding:10px 12px;font-size:12px;border-radius:2px}
+.result.show{display:block}
+.result.ok{background:#e8f5e9;border:1px solid #c8e6c9;color:#1b5e20}
+.result.err{background:#ffebee;border:1px solid #ffcdd2;color:var(--red)}
+.result.info{background:#e3eaf5;border:1px solid #c5d4ea;color:#1a4480}
+.muted{color:var(--ink-soft);font-size:13px;padding:8px 0}
+.pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px}
+.pill.open{background:#c8e6c9;color:#1b5e20}
+.pill.closed{background:#e0ddd6;color:#777}
+.pill.rejected{background:#e8dada;color:#8a3a3a}
+.pill.applied{background:#d7e4f5;color:#1a4480}
+.pill.submitted{background:#cfe0d2;color:#1b5e20}
+.pill.withdrawn{background:#e0ddd6;color:#777}
+.pill.other{background:#ece9e3;color:#6a655c;cursor:help}
+.pill.cv-ready{background:#d6e8e0;color:#0f3a2e}
+.pill.cv-generating{background:#f0e6d2;color:#7a5a10}
+.pill.cv-failed{background:#f3d9d9;color:var(--red);cursor:help}
+.app{background:#fff;border:1px solid var(--grey-mid);border-radius:2px;padding:10px 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.app+.app{margin-top:6px}
+.app-main{min-width:0;flex:1}
+.app-title{font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.app-meta{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.app-actions{display:flex;gap:6px;flex:none;flex-wrap:wrap}
+.job{background:#fff;border:1px solid var(--grey-mid);border-radius:2px}
+.job+.job{margin-top:6px}
+.job-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 12px;cursor:pointer}
+.job-main{min-width:0;flex:1}
+.job-title{font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.job-meta{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.job-actions{display:flex;gap:6px;flex:none;align-items:center;flex-wrap:wrap}
+.job-body{display:none;padding:0 12px 12px}
+.job-body.show{display:block}
+.job-desc{white-space:pre-wrap;font-size:12px;line-height:1.5;color:var(--ink-mid);max-height:280px;overflow-y:auto;background:#fbfaf8;border:1px solid var(--grey-mid);padding:10px;border-radius:2px}
+.score{margin-top:10px;font-size:12px;color:var(--ink-mid)}
+.score .num{font-family:var(--serif);font-size:20px;font-weight:600;color:var(--ink)}
+.score .dims{margin-top:4px;color:var(--ink-soft);font-size:11px}
+.filters{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.filters .field{min-width:150px}
+.filters label{margin-top:0}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">MPYA Jobs</span>
+  <!-- V3-P-003 role-specific top-banner navigation (S6), populated once the
+       session and consultant context resolve — see renderTopNav() calls below. -->
+  <nav id="topNav" style="display:flex;gap:8px;margin-left:auto;margin-right:14px"></nav>
+  <div class="hgroup">
+    <span class="whoami" id="whoami"></span>
+    <button class="hbtn" onclick="logout()">Sign out</button>
+  </div>
+</header>
+<main>
+  <h1>Jobs</h1>
+  <div class="lead">
+    Create and manage shared jobs, see the advisory match for a consultant, and
+    then Apply or Reject. Scores are advisory only and are never stored on a
+    job. A consultant–job pair holds one live decision: applying needs any
+    reject withdrawn first, and rejecting needs a live application withdrawn or
+    closed first. Once the selected consultant rejects or applies to a job it
+    leaves this list: find rejected jobs under Show → Rejected jobs, and
+    applications on the Applications page.
+  </div>
+
+  <!-- Consultant context ---------------------------------------------------->
+  <div class="card">
+    <h2>Consultant context</h2>
+    <div class="filters">
+      <div class="field">
+        <label for="consultantSelect">Acting for</label>
+        <select id="consultantSelect"></select>
+      </div>
+      <div class="field">
+        <label for="statusFilter">Show</label>
+        <select id="statusFilter">
+          <option value="open">Open jobs</option>
+          <option value="closed">Closed jobs</option>
+          <option value="">All jobs</option>
+          <option value="rejected">Rejected jobs</option>
+        </select>
+      </div>
+      <div class="field"><label for="scoreOrder">Order</label><select id="scoreOrder"><option value="newest">Newest first</option><option value="score">Highest score first</option></select></div>
+      <div class="field"><label for="minimumScore">Minimum score (clear for all)</label><input id="minimumScore" type="number" min="0" max="100"></div>
+      <button class="mini" id="updateConfigBtn">Update match configurator</button>
+      <button class="mini" id="reloadBtn" style="margin-bottom:1px">Reload</button>
+    </div>
+    <div class="result" id="ctxMsg"></div>
+  </div>
+
+  <!-- Create ---------------------------------------------------------------->
+  <div class="card">
+    <h2>+ Job</h2>
+    <div class="frow">
+      <div class="field">
+        <label for="fTitle">Title *</label>
+        <input id="fTitle" placeholder="Senior Embedded Engineer">
+      </div>
+      <div class="field">
+        <label for="fCompany">Company</label>
+        <input id="fCompany" placeholder="Client name">
+      </div>
+    </div>
+    <div class="frow">
+      <div class="field">
+        <label for="fLocation">Location</label>
+        <input id="fLocation" placeholder="Göteborg">
+      </div>
+      <div class="field">
+        <label for="fCloseDate">Closes (YYYY-MM-DD)</label>
+        <input id="fCloseDate" placeholder="2026-09-30">
+      </div>
+      <div class="field">
+        <label for="fSourceUrl">Source URL</label>
+        <input id="fSourceUrl" placeholder="https://…">
+      </div>
+    </div>
+    <label for="fDescription">Description *</label>
+    <textarea id="fDescription" placeholder="Paste the full posting here."></textarea>
+    <button class="primary" id="createBtn">Create job</button>
+    <div class="result" id="createMsg"></div>
+  </div>
+
+  <!-- List ------------------------------------------------------------------>
+  <div class="card">
+    <h2><span>Jobs <span id="jobCount"></span></span></h2>
+    <div class="result" id="decisionMsg" style="margin:0 0 12px"></div>
+    <div id="jobList"><div class="muted">Loading…</div></div>
+  </div>
+</main>
+
+<script src="/html/auth-guard.js"></script>
+<script>
+/* Minimal Job client (V2 Slice 1). Same-origin fetches, so the httpOnly
+   session cookie is sent; the server authorizes every call independently and
+   this page's controls are UX only. */
+const API = '/api/jobs';
+const APPS = '/api/applications';
+
+let me = null;
+let consultant = '';          /* username we are acting for */
+let consultantIds = {};       /* username -> user id, to read the per-row maps */
+let consultantOptions = [];   /* every consultant username the caller operates */
+let openJobId = null;         /* which row is expanded */
+
+/* The job list keys its `reviews`/`applications` maps by consultant id, since
+   that is the stable identity; the picker works in usernames. */
+function actingId(){ return consultantIds[consultant] || ''; }
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+
+function show(el, kind, text){
+  el.className = 'result show ' + kind;
+  el.textContent = text;
+}
+function hide(el){ el.className = 'result'; }
+
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({credentials:'same-origin'}, opts || {}));
+  let body = null;
+  try { body = await r.json(); } catch (_) { body = null; }
+  if (!r.ok) {
+    const detail = body && body.detail;
+    throw new Error(typeof detail === 'string' ? detail : ('Request failed (' + r.status + ')'));
+  }
+  return body;
+}
+
+/* ── Consultant context ─────────────────────────────────────────────────── */
+
+async function loadConsultants(){
+  const sel = document.getElementById('consultantSelect');
+  const ctx = document.getElementById('ctxMsg');
+  const options = [];
+  let loadError = '';
+  consultantIds = {};
+
+  /* One source for every role: the server returns exactly the consultant
+     contexts this caller may act in, so the picker and the authorization
+     decision are the same set. Do NOT branch on roles here and do NOT use
+     /api/ta/consultants — that is a TA-assignment listing and requires an
+     explicit ta_id from an admin, which left the Admin+Consultant able to act
+     only for themselves. */
+  try {
+    const data = await api('/api/me/consultants');
+    (data.consultants || []).forEach(c => {
+      options.push(c.username);
+      consultantIds[c.username] = c.id;
+    });
+  } catch (e) {
+    /* A failed load is NOT an empty assignment list. Record it and let the one
+       decision below choose the banner: an earlier version showed the error
+       here and then unconditionally overwrote it with the "ask an admin"
+       guidance, so a transient API failure was presented to the user as a
+       valid empty result. */
+    loadError = 'Could not load your consultant list: ' + e.message;
+  }
+
+  /* `consultant_id` is the app-wide link convention (the admin "view as" and
+     the TA dashboard both use it); it carries a username, not a UUID. */
+  const wanted = new URLSearchParams(location.search).get('consultant_id');
+  sel.innerHTML = options.map(u => '<option value="' + esc(u) + '">' + esc(u) + '</option>').join('');
+  if (wanted && options.indexOf(wanted) !== -1) sel.value = wanted;
+  consultant = sel.value || '';
+  consultantOptions = options;   /* the "Link consultant" picker draws from this same set */
+
+  /* One decision, one place. A later branch cannot overwrite an earlier
+     banner because there is no later branch. */
+  if (loadError) {
+    show(ctx, 'err', loadError);
+  } else if (!consultant) {
+    show(ctx, 'info', 'No consultant available for your account. Ask an admin to assign one.');
+  } else {
+    hide(ctx);
+  }
+}
+
+/* ── List ───────────────────────────────────────────────────────────────── */
+
+function jobRow(job){
+  const reviews = job.reviews || {};
+  const apps = job.applications || {};
+  const bits = [job.company, job.location].filter(Boolean).map(esc);
+  if (job.close_date) bits.push('closes ' + esc(job.close_date));
+  /* A closed job is not an active score/review/apply candidate — the server
+     answers 409 for all three. Disable them here so the UI states the same rule
+     rather than inviting a click that can only fail. Edit stays live: a closed
+     record may still need correcting. */
+  const closed = job.status === 'closed';
+  const off = closed ? ' disabled title="This job is closed."' : '';
+  /* The one-live-decision rule, stated in the controls for the consultant we
+     are acting for. Applying needs the reject withdrawn; rejecting needs the
+     live application withdrawn or closed. */
+  const id = actingId();
+  const myReject = id && reviews[id];
+  const myApp = id && apps[id];
+  /* Badges describe the *selected* consultant, never "somebody on this shared
+     job". A TA serving two consultants would otherwise see Mo's Rejected badge
+     while offering Norberto an enabled, valid Reject — the row contradicting
+     its own controls. Another consultant's decision is real and worth showing,
+     but only labelled as theirs. */
+  const others = Object.keys(reviews).filter(k => k !== id).length
+               + Object.keys(apps).filter(k => k !== id).length;
+  const badges =
+      (myReject ? '<span class="pill rejected">Rejected</span>' : '')
+    + (myApp ? '<span class="pill applied">Applied</span>' : '')
+    + (others
+        ? '<span class="pill other" title="' + esc(
+            id ? 'Decisions by other consultants on this shared job — not '
+                 + consultant + "'s."
+               : 'Decisions recorded on this shared job. Pick a consultant to '
+                 + 'see their own state.')
+          + '">' + others + (id ? ' other' : ' recorded') + '</span>'
+        : '');
+  const applyOff = closed ? off
+    : (myApp ? ' disabled title="Already applied."'
+             : (myReject ? ' disabled title="Withdraw the reject first."' : ''));
+  const rejectOff = closed ? off
+    : (myApp ? ' disabled title="Withdraw or close the application first."' : '');
+  const undo = myReject
+    ? '<button class="mini" data-act="unreject">Undo reject</button>' : '';
+  return ''
+    + '<div class="job" data-id="' + esc(job.id) + '">'
+    +   '<div class="job-head" data-act="toggle">'
+    +     '<div class="job-main">'
+    +       '<div class="job-title">' + esc(job.title)
+    +         '<span class="pill ' + esc(job.status) + '">' + esc(job.status) + '</span>'
+    +         badges
+    +       '</div>'
+    +       '<div class="job-meta">' + (bits.join(' · ') || '&nbsp;') + '</div>'
+    +     '</div>'
+    +     '<div class="job-actions">'
+    +       '<button class="mini" data-act="score"' + off + '>Score</button>'
+    +       '<button class="mini" data-act="apply"' + applyOff + '>Apply</button>'
+    +       '<button class="mini" data-act="edit">Edit</button>'
+    +       '<button class="mini danger" data-act="reject"' + rejectOff + '>Reject</button>'
+    +       undo
+    +       '<button class="mini danger" data-act="close"'
+    +          (closed ? ' disabled' : '') + '>Close</button>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="job-body" id="body-' + esc(job.id) + '"></div>'
+    + '</div>';
+}
+
+/* V3-P-021/V3-P-032 (S21): once the selected consultant has decided a Job —
+   a Reject marker or a live Application — it leaves their default list. This
+   is a view filter over the list's own consultant-scoped `reviews`/
+   `applications` maps, never a Job-level state: every other consultant still
+   sees the Job, and with no consultant selected nothing is hidden. It sits in
+   front of jobRow, whose badges and disabled controls are unchanged. */
+function isDecided(job){
+  const id = actingId();
+  return !!(id && ((job.reviews || {})[id] || (job.applications || {})[id]));
+}
+function visibleJobs(jobs, show){
+  const id = actingId();
+  if (!id) return jobs;
+  if (show === 'rejected') return jobs.filter(j => (j.reviews || {})[id]);
+  return jobs.filter(j => !isDecided(j));
+}
+
+async function loadJobs(){
+  const list = document.getElementById('jobList');
+  const show = document.getElementById('statusFilter').value;
+  /* "Rejected jobs" is not a server status: the API 400s on anything but
+     open/closed. It asks for every status and filters here, so a rejected
+     *closed* Job stays reachable. */
+  const status = show === 'rejected' ? '' : show;
+  list.innerHTML = '<div class="muted">Loading…</div>';
+  try {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (consultant) params.set('consultant_username', consultant);
+    params.set('order', document.getElementById('scoreOrder').value || 'newest');
+    const minimum = document.getElementById('minimumScore').value;
+    if (minimum !== '') params.set('minimum_score', minimum);
+    const data = await api(API + '?' + params.toString());
+    /* The header counts come from the server and include hidden Jobs. */
+    document.getElementById('jobCount').textContent = '(' + data.total + '; ' + (data.unscored_count || 0) + ' unscored)';
+    const rows = visibleJobs(data.jobs || [], show);
+    list.innerHTML = rows.length
+      ? rows.map(jobRow).join('')
+      : '<div class="muted">' + (!data.total
+          ? 'No jobs yet. Create one above.'
+          : (show === 'rejected'
+              ? 'No rejected jobs for ' + esc(consultant) + '.'
+              : 'Every job here is already decided for ' + esc(consultant)
+                + ': rejected ones are under Show → Rejected jobs, '
+                + 'applied ones under Applications.')) + '</div>';
+  } catch (e) {
+    list.innerHTML = '<div class="muted">' + esc(e.message) + '</div>';
+  }
+}
+
+/* ── Detail / edit / score / reject ─────────────────────────────────────── */
+
+function editForm(job){
+  const f = (id, label, value, ph) => ''
+    + '<div class="field"><label for="' + id + '">' + label + '</label>'
+    + '<input id="' + id + '" value="' + esc(value || '') + '" placeholder="' + esc(ph || '') + '"></div>';
+  return ''
+    + '<div class="frow">'
+    +   f('e-title', 'Title *', job.title)
+    +   f('e-company', 'Company', job.company)
+    + '</div>'
+    + '<div class="frow">'
+    +   f('e-location', 'Location', job.location)
+    +   f('e-close', 'Closes (YYYY-MM-DD)', job.close_date, '2026-09-30')
+    +   f('e-url', 'Source URL', job.source_url)
+    + '</div>'
+    + '<label for="e-description">Description *</label>'
+    + '<textarea id="e-description">' + esc(job.description) + '</textarea>'
+    + '<button class="primary" data-act="save">Save changes</button>';
+}
+
+async function openJob(jobId, mode){
+  const body = document.getElementById('body-' + jobId);
+  if (!body) return;
+  body.className = 'job-body show';
+  body.innerHTML = '<div class="muted">Loading…</div>';
+  const job = await api(API + '/' + encodeURIComponent(jobId));
+  if (mode === 'edit') {
+    body.innerHTML = editForm(job) + '<div class="result" id="msg-' + esc(jobId) + '"></div>';
+  } else {
+    body.innerHTML = ''
+      + '<div class="job-desc">' + esc(job.description) + '</div>'
+      + '<div class="score" id="score-' + esc(jobId) + '"></div>'
+      + '<div class="result" id="msg-' + esc(jobId) + '"></div>';
+  }
+  openJobId = jobId;
+  return job;
+}
+
+async function scoreJob(jobId){
+  await openJob(jobId, 'view');
+  const target = document.getElementById('score-' + jobId);
+  if (!consultant) { target.textContent = 'Pick a consultant first.'; return; }
+  target.innerHTML = '<span class="muted">Scoring…</span>';
+  try {
+    const s = await api(API + '/' + encodeURIComponent(jobId) + '/score?consultant_username='
+                        + encodeURIComponent(consultant));
+    if (!s.scored) {
+      /* An honest, safe failure: no score exists for this pair yet. The job is
+         still perfectly valid — a missing score never hides or rejects it. */
+      target.innerHTML = '<span class="muted">No advisory score for '
+        + esc(consultant) + ' (' + esc(s.reason) + ').</span>';
+      return;
+    }
+    const dims = Object.keys(s.score_breakdown || {})
+      .map(k => esc(k) + ' ' + esc(s.score_breakdown[k])).join(' · ');
+    target.innerHTML = ''
+      + '<span class="num">' + esc(s.match_score) + '</span> / 100 &nbsp;'
+      + '<span class="muted">advisory, for ' + esc(consultant) + ' — cached indicator</span>'
+      + '<div class="dims">' + dims + '</div>'
+      + (s.hard_blockers && s.hard_blockers.length
+          ? '<div class="dims">blockers: ' + esc(s.hard_blockers.join(', ')) + '</div>' : '');
+  } catch (e) {
+    target.innerHTML = '<span class="muted">' + esc(e.message) + '</span>';
+  }
+}
+
+/* A decision removes its row from the list (visibleJobs), taking the in-row
+   message with it, so the outcome is also stated on this page-level line,
+   which loadJobs() never touches. show() writes textContent: a Job title is
+   posting text and is not HTML-escaped a second time here. */
+function confirmDecision(text){
+  show(document.getElementById('decisionMsg'), 'ok', text);
+}
+function jobLabel(job){ return "'" + ((job && job.title) || 'this job') + "'"; }
+
+async function rejectJob(jobId){
+  if (!consultant) { alert('Pick a consultant first.'); return; }
+  const job = await openJob(jobId, 'view');
+  const msg = document.getElementById('msg-' + jobId);
+  try {
+    const r = await api(API + '/' + encodeURIComponent(jobId) + '/reject', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({consultant_username: consultant}),
+    });
+    show(msg, 'ok', r.created
+      ? 'Reject recorded.'
+      : 'Already rejected — the existing marker was kept.');
+    confirmDecision('Rejected ' + jobLabel(job) + ' for ' + consultant
+                    + '. Find it under Show → Rejected jobs.');
+    loadJobs();
+  } catch (e) {
+    show(msg, 'err', e.message);
+  }
+}
+
+async function unrejectJob(jobId){
+  if (!consultant) { alert('Pick a consultant first.'); return; }
+  if (!confirm('Withdraw the reject for ' + consultant + '?')) return;
+  const job = await openJob(jobId, 'view');
+  const msg = document.getElementById('msg-' + jobId);
+  try {
+    const r = await api(API + '/' + encodeURIComponent(jobId)
+                        + '/reject?consultant_username=' + encodeURIComponent(consultant),
+                        {method: 'DELETE'});
+    show(msg, 'ok', r.withdrawn ? 'Reject withdrawn.' : 'There was no reject to withdraw.');
+    /* The row leaves the Rejected view the same way, so say so here too. */
+    confirmDecision('Withdrew the reject on ' + jobLabel(job) + ' for ' + consultant
+                    + '. It is listed again.');
+    loadJobs();
+  } catch (e) {
+    show(msg, 'err', e.message);
+  }
+}
+
+/* ── Apply ──────────────────────────────────────────────────────────────── */
+
+/* Apply is still a Job-row action; the Application list/detail, its status
+   transitions, and the tailored-CV workflow are their own focused dashboard
+   now (html/applications.html — V3-P-003, S6), not a card embedded here. */
+async function applyJob(jobId){
+  if (!consultant) { alert('Pick a consultant first.'); return; }
+  const job = await openJob(jobId, 'view');
+  const msg = document.getElementById('msg-' + jobId);
+  try {
+    const r = await api(APPS, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({job_id: jobId, consultant_username: consultant}),
+    });
+    show(msg, 'ok', r.created
+      ? 'Applied. The application is now live — see Applications.'
+      : 'Already applied — the existing application was kept.');
+    confirmDecision('Applied to ' + jobLabel(job) + ' for ' + consultant
+                    + '. See Applications.');
+    loadJobs();
+  } catch (e) {
+    show(msg, 'err', e.message);
+  }
+}
+
+async function saveJob(jobId){
+  const msg = document.getElementById('msg-' + jobId);
+  const val = id => (document.getElementById(id).value || '').trim();
+  try {
+    await api(API + '/' + encodeURIComponent(jobId), {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        title: val('e-title'),
+        company: val('e-company'),
+        location: val('e-location'),
+        close_date: val('e-close') || null,
+        source_url: val('e-url'),
+        description: val('e-description'),
+      }),
+    });
+    show(msg, 'ok', 'Saved.');
+    loadJobs();
+  } catch (e) {
+    show(msg, 'err', e.message);
+  }
+}
+
+async function closeJob(jobId){
+  if (!confirm('Close this job? It stays visible but is no longer active.')) return;
+  await api(API + '/' + encodeURIComponent(jobId) + '/close', {method: 'POST'});
+  loadJobs();
+}
+
+/* ── Create ─────────────────────────────────────────────────────────────── */
+
+async function createJob(){
+  const msg = document.getElementById('createMsg');
+  const btn = document.getElementById('createBtn');
+  const val = id => (document.getElementById(id).value || '').trim();
+  btn.disabled = true;
+  try {
+    const r = await api(API, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        title: val('fTitle'),
+        company: val('fCompany'),
+        location: val('fLocation'),
+        close_date: val('fCloseDate') || null,
+        source_url: val('fSourceUrl'),
+        description: val('fDescription'),
+      }),
+    });
+    if (r.status === 'duplicate') {
+      show(msg, 'info', 'That open job already exists at your Site.');
+    } else if (r.status === 'near_duplicate') {
+      show(msg, 'info', 'A very similar open job already exists at your Site.');
+    } else {
+      show(msg, 'ok', 'Job created.');
+      ['fTitle','fCompany','fLocation','fCloseDate','fSourceUrl','fDescription']
+        .forEach(id => { document.getElementById(id).value = ''; });
+    }
+    loadJobs();
+  } catch (e) {
+    show(msg, 'err', e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ── Wiring ─────────────────────────────────────────────────────────────── */
+
+document.getElementById('jobList').addEventListener('click', ev => {
+  const btn = ev.target.closest('[data-act]');
+  if (!btn) return;
+  const row = ev.target.closest('.job');
+  if (!row) return;
+  const id = row.dataset.id;
+  const act = btn.dataset.act;
+  if (act === 'save') { saveJob(id); return; }
+  ev.preventDefault();
+  if (act === 'score') scoreJob(id);
+  else if (act === 'apply') applyJob(id);
+  else if (act === 'edit') openJob(id, 'edit');
+  else if (act === 'reject') rejectJob(id);
+  else if (act === 'unreject') unrejectJob(id);
+  else if (act === 'close') closeJob(id);
+  else if (act === 'link') linkConsultant(id);
+  else if (act === 'toggle') {
+    const body = document.getElementById('body-' + id);
+    if (openJobId === id && body.classList.contains('show')) {
+      body.className = 'job-body';
+      openJobId = null;
+    } else {
+      openJob(id, 'view');
+    }
+  }
+});
+
+document.getElementById('createBtn').addEventListener('click', createJob);
+document.getElementById('reloadBtn').addEventListener('click', () => {
+  loadJobs();
+});
+document.getElementById('statusFilter').addEventListener('change', () => {
+  document.getElementById('scoreOrder').value = 'newest';
+  loadJobs();
+});
+document.getElementById('scoreOrder').addEventListener('change', loadJobs);
+document.getElementById('minimumScore').addEventListener('change', loadJobs);
+let configTimer = null;
+let configRequest = null;
+async function pollConfig(username){
+  const data = await api('/api/matching/' + encodeURIComponent(username) + '/config');
+  if (username !== consultant) return;
+  const pending = data.status === 'queued' || data.status === 'running';
+  document.getElementById('updateConfigBtn').disabled = pending;
+  show(document.getElementById('ctxMsg'), data.status === 'failed' ? 'err' : 'info',
+       'Match configurator: ' + data.status + (data.stage ? ' — ' + data.stage : '')
+       + (data.error_message ? ': ' + data.error_message : ''));
+  if (pending) configTimer = setTimeout(() => pollConfig(username).catch(e => show(document.getElementById('ctxMsg'), 'err', e.message)), 2000);
+  else { configRequest = null; if (data.status === 'succeeded') loadJobs(); }
+}
+document.getElementById('updateConfigBtn').addEventListener('click', async () => {
+  if (!consultant) { show(document.getElementById('ctxMsg'), 'err', 'Pick a consultant first.'); return; }
+  const username = consultant;
+  if (!configRequest || configRequest.username !== username) configRequest = {username, id: crypto.randomUUID()};
+  document.getElementById('updateConfigBtn').disabled = true;
+  try {
+    await api('/api/matching/' + encodeURIComponent(username) + '/config', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({request_id: configRequest.id})
+    });
+    await pollConfig(username);
+  } catch (e) {
+    document.getElementById('updateConfigBtn').disabled = false;
+    show(document.getElementById('ctxMsg'), 'err', e.message);
+  }
+});
+document.getElementById('consultantSelect').addEventListener('change', ev => {
+  consultant = ev.target.value;
+  /* The confirmation names the consultant it was for; it must not linger
+     over another consultant's list. */
+  hide(document.getElementById('decisionMsg'));
+  clearTimeout(configTimer);
+  if (consultant) pollConfig(consultant).catch(() => {});
+  /* The per-row Apply/Reject controls depend on who we are acting for. */
+  loadJobs();
+  renderTopNav(document.getElementById('topNav'), me, 'Jobs', consultant);
+});
+
+(async function init(){
+  me = await requireAuth();
+  document.getElementById('whoami').textContent =
+    me.username + ' · ' + (me.roles || []).join(', ');
+  await loadConsultants();
+  renderTopNav(document.getElementById('topNav'), me, 'Jobs', consultant);
+  await loadJobs();
+  if (consultant) pollConfig(consultant).catch(() => {});
+})();
+</script>
+</body>
+</html>

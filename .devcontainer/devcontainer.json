@@ -1,0 +1,26 @@
+// VS Code "Reopen in Container" for CV Adapter, against native Docker Engine
+// in WSL (no Docker Desktop). Open the folder from a WSL window (`code .` in
+// WSL) — or set "dev.containers.executeInWSL": true — so the Dev Containers
+// extension drives WSL's docker CLI. See docs/running.md → Dev container.
+{
+  "name": "CV Adapter (dev)",
+  "dockerComposeFile": "compose.yml",
+  "service": "dev",
+  "runServices": ["dev", "db"],
+  "workspaceFolder": "/workspace",
+  "remoteUser": "dev",
+  // Re-maps the image's `dev` user to the host UID/GID on start, in case the
+  // image was built without DEV_UID/DEV_GID matching this host.
+  "updateRemoteUserUID": true,
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python"],
+      "settings": {
+        // The image's own interpreter; there is no venv in the container.
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true
+      }
+    }
+  }
+}

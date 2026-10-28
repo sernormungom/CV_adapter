@@ -1,0 +1,13 @@
+venv/
+.venv-cockpit/
+__pycache__/
+*.pyc
+.env*
+!.env.example
+# Keep local Claude settings, sessions, skills and worktrees out of Git. To
+# share one project skill, add below `.claude/*`:
+#   !.claude/skills/
+#   .claude/skills/*
+#   !.claude/skills/<name>/
+.claude/*
+data/

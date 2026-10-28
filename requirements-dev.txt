@@ -1,0 +1,9 @@
+# Development-only dependencies (test tooling). Install into the WSL venv with:
+#   pip install -r requirements-dev.txt
+# Runtime deps live in requirements.txt; httpx (used by FastAPI's TestClient) is
+# already a runtime dependency there.
+-r requirements.txt
+
+pytest==9.1.1
+# Deliberately no pytest-xdist: measured at 54.3s (-n auto, 8 workers) against
+# 56.8s serial for the same 478 fast tests. See docs/testing.md.

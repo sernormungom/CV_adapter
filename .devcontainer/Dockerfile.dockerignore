@@ -1,0 +1,11 @@
+# Build context for .devcontainer/Dockerfile only (BuildKit reads
+# <Dockerfile>.dockerignore in preference to the root .dockerignore, which
+# belongs to the production image and is left alone).
+#
+# An allowlist: the image needs the two requirements files and nothing else —
+# the source is bind-mounted at run time. This keeps .git, .venv, data/,
+# node_modules and any .env out of the context, and
+# keeps the context a few kilobytes regardless of what the checkout holds.
+*
+!requirements.txt
+!requirements-dev.txt

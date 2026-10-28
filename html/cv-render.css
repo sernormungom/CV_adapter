@@ -1,0 +1,276 @@
+/* Shared CV render core - sheet CSS (screen + print). Extracted from
+   cv-importer.html (ADR-009, docs/plans/v2-pilot.md) so the editor preview
+   and the public viewer (cv-viewer.html) render byte-identically. The render
+   logic lives in cv-render.js. Loaded by both pages. */
+:root{
+  --ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;
+  --grey:#e5e1da;--grey-dark:#ccc8c0;
+  --sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;
+}
+
+/* ══════════════════════════════
+   CV SHEET  —  two-col grid
+══════════════════════════════ */
+.cvs{
+  width:720px;
+  max-width:720px;
+  min-height:1018px;
+  background:#ffffff;
+  font-family:var(--sans);font-size:11px;color:var(--ink);
+  box-shadow:0 8px 48px rgba(0,0,0,.24);
+  display:grid;
+  grid-template-columns:26.4% minmax(0,1fr);
+  grid-auto-rows:min-content;
+  align-content:start;
+  overflow:hidden;
+  position:relative;
+  box-sizing:border-box;
+}
+/* Full-height grey left column — always covers entire CV height */
+.cvs::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;bottom:0;
+  width:26.4%;
+  background:var(--grey);
+  z-index:0;
+  pointer-events:none;
+}
+/* Ensure all grid children sit above the pseudo-element */
+.cvs>*{position:relative;z-index:1}
+
+/* ── HEADER: full width purple ── */
+.cvs-hd{
+  grid-column:1/-1;
+  background:var(--cvacc,#972182);
+  padding:20px 0 17px 22px;
+  display:flex;align-items:stretch;justify-content:space-between;
+}
+.cvs-hd-text{flex:1}
+.cvs-role-lbl{font-size:11.5px;font-weight:300;color:rgba(255,255,255,.82);letter-spacing:.04em;margin-bottom:3px}
+.cvs-name-lbl{font-size:31px;font-weight:600;color:#fff;line-height:1.1;font-family:var(--serif)}
+
+/* ── INTRO: grey left (photo) | white right (summary) ── */
+.cvs-intro-l{background:transparent;padding:16px 12px 0 18px;align-self:stretch}
+.cvs-intro-r{background:#fff;padding:16px 18px 16px 14px;display:flex;flex-direction:column;justify-content:center}
+.cvs-photo{width:150px;height:185px;object-fit:cover;display:block}
+.cvs-photo-ph{width:150px;height:185px;background:#ccc9c2;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;text-align:center;line-height:1.6}
+
+
+
+/* ── BODY: grey left | white right ── */
+.cvs-body-l{background:transparent;padding:16px 12px 16px 18px;align-self:stretch}
+.cvs-body-r{background:#fff;padding:16px 18px 16px 14px;align-self:stretch}
+
+/* Section headings — live in grey left col, accent colour */
+.cvs-sec{
+  font-size:14px;font-weight:400;font-family:var(--serif);
+  color:var(--cvacc,#972182);
+  padding-bottom:5px;margin-bottom:8px;margin-top:20px;
+  border-bottom:1px solid var(--grey-dark);line-height:1.2;
+}
+.cvs-sec:first-child{margin-top:0}
+
+/* Left col data */
+.cvs-lco{font-size:10.5px;font-weight:600;color:var(--ink);margin-bottom:1px;line-height:1.3}
+.cvs-lci{font-size:9.5px;color:var(--ink-mid)}
+.cvs-lcd{font-size:9.5px;color:var(--ink-soft);margin-bottom:10px}
+.cvs-lang{font-size:10.5px;color:var(--ink-mid);margin-bottom:4px;display:flex;gap:5px;line-height:1.4}
+.cvs-lang::before{content:'•';color:var(--cvacc,#972182);flex-shrink:0}
+
+/* Right col — skills table */
+.cvs-skills-wrap{margin-bottom:16px}
+.cvs-skills-tbl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
+.cvs-sk-col{padding:6px 8px 6px 0}
+.cvs-sk-col:not(:last-child){border-right:1px solid #dedad3;padding-right:8px;margin-right:8px}
+.cvs-sk-head{font-size:8.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--cvacc,#972182);margin-bottom:5px}
+.cvs-ski{display:flex;align-items:flex-start;gap:5px;margin-bottom:3px;line-height:1.4}
+.cvs-ski-dot{width:4px;height:4px;background:var(--cvacc,#972182);border-radius:50%;flex-shrink:0;margin-top:3px}
+
+/* Right col — exp entries */
+.cvs-emp{padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid #edeae4}
+.cvs-emp:last-child{border-bottom:none;margin-bottom:0}
+.cvs-exp-entry{margin-bottom:7px}
+.cvs-exp-entry:last-child{margin-bottom:0}
+.cvs-exp-role{font-weight:600;color:var(--ink);margin-bottom:1px;line-height:1.3}
+.cvs-exp-period{font-size:9.5px;color:var(--ink-soft);margin-bottom:5px}
+.cvs-exp-bullets{list-style:none;padding:0;margin:0 0 4px}
+.cvs-exp-bullets li{color:var(--ink-mid);line-height:1.55;margin-bottom:2px;padding-left:12px;position:relative}
+.cvs-exp-bullets li::before{content:var(--bchar,'•');position:absolute;left:0;color:var(--cvacc,#972182)}
+.cvs-exp-tools{font-size:9.5px;color:var(--ink-mid)}
+.cvs-exp-tools strong{font-weight:600;color:var(--ink)}
+/* Rich text description output */
+.cvs-exp-desc p{margin:0 0 3px}
+.cvs-exp-desc ul,.cvs-exp-desc ol{padding-left:14px;margin:0 0 4px}
+.cvs-exp-desc li{margin-bottom:1px;line-height:1.55}
+.cvs-exp-desc ul{list-style:disc}
+.cvs-exp-desc ol{list-style:decimal}
+
+/* Full-width purple section divider — border avoids print antialias mismatch across column backgrounds */
+.cvs-divider{grid-column:1/-1;height:0;border-top:1px solid var(--cvacc,#972182);background:transparent;position:relative;z-index:3}
+/* Section heading row — grey left + white right, no bottom padding so divider sits flush */
+.cvs-sec-hd-row{grid-column:1/-1;display:grid;grid-template-columns:26.4% minmax(0,1fr)}
+.cvs-sec-hd-l{background:transparent;padding:14px 12px 6px 18px}
+.cvs-sec-hd-r{background:#fff;min-width:0;overflow:hidden;box-sizing:border-box}
+.cvs-exp-section-hd-r{background:#fff}
+.cvs-exp-row{grid-column:1/-1;display:grid;grid-template-columns:26.4% minmax(0,1fr)}
+.cvs-exp-row:last-of-type .cvs-exp-row-l,.cvs-exp-row:last-of-type .cvs-exp-row-r{padding-bottom:48px}
+.cvs-exp-row-l{background:transparent;padding:10px 12px 10px 18px}
+.cvs-exp-row-r{background:#fff;padding:10px 18px 10px 14px;box-shadow:inset 0 1px 0 #edeae4;min-width:0;overflow:hidden}
+
+/* Right col — education */
+.cvs-edu-wrap{margin-top:6px}
+.cvs-edu-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cvs-edu-ctitle{font-size:8.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--cvacc,#972182);margin-bottom:5px}
+.cvs-edu-deg{font-size:11px;font-weight:600;color:var(--ink);margin-bottom:1px}
+.cvs-edu-sch{font-size:10.5px;color:var(--ink-mid)}
+.cvs-edu-dates{font-size:9.5px;color:var(--ink-soft);margin-bottom:3px}
+.cvs-edu-desc{font-size:10px;color:var(--ink-mid);line-height:1.5;margin-top:3px}
+.cvs-course{padding-left:10px;position:relative;margin-bottom:4px;line-height:1.5}
+.cvs-course::before{content:'•';position:absolute;left:0;color:var(--cvacc,#972182)}
+
+/* ── FOOTER: full width ── */
+.cvs-ft-grey{grid-column:1/2;background:#e5e1da;height:16mm}
+.cvs-ft{grid-column:1/-1;display:grid;grid-template-columns:26.4% 1fr;min-height:16mm}
+.cvs-ft-inner{background:#ffffff;display:flex;align-items:center;justify-content:space-between;padding:0 5.8mm;font-family:var(--sans);font-size:9px;color:var(--ink-soft);box-sizing:border-box;border-top:1px solid #dedad3}
+.cvs-ft-inner-text{display:flex;flex-direction:column;gap:2px;line-height:1.45}
+.cvs-ft-inner-logo{height:10mm;width:auto;max-width:28mm;object-fit:contain;object-position:right center;flex-shrink:0;display:block}
+
+.cv-ph{color:#ccc;font-style:italic}
+
+/* ── Page break markers (preview only, hidden in print) ── */
+.page-break-marker{
+  position:absolute!important;
+  left:0;right:0;height:2px;
+  overflow:visible;
+  pointer-events:none;
+  z-index:10!important;
+}
+.page-break-marker::before{
+  content:'';
+  display:block;
+  position:absolute;
+  left:0;right:0;top:0;height:2px;
+  background:repeating-linear-gradient(90deg,#c05800 0,#c05800 10px,transparent 10px,transparent 18px);
+}
+.page-break-marker::after{
+  content:attr(data-label);
+  display:block;
+  position:absolute;
+  left:50%;top:-9px;
+  transform:translateX(-50%);
+  background:#c05800;color:#fff;
+  font-family:'Source Sans 3',sans-serif;
+  font-size:9px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 8px;border-radius:2px;
+  white-space:nowrap;
+}
+@media print{.page-break-marker{display:none!important}}
+
+/* ── PRINT: per-page injected footer (pages 2…n) ── */
+/* Elements are added via JS in beforeprint; removed in afterprint.  */
+/* Using mm for height/top so units are identical in screen + print.  */
+.cvs-ft-injected{
+  position:absolute;
+  left:26.4%;right:0;
+  height:16mm;
+  background:#ffffff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 5.8mm;
+  font-family:var(--sans);
+  font-size:9px;
+  color:var(--ink-soft);
+  box-sizing:border-box;
+  z-index:10;
+}
+.cvs-ft-injected-text{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  line-height:1.45;
+}
+.cvs-ft-injected-logo{
+  height:10mm;
+  width:auto;
+  max-width:28mm;
+  object-fit:contain;
+  object-position:right center;
+  flex-shrink:0;
+  display:block;
+}
+
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-sizing:border-box!important}
+  html,body{background:#fff!important;height:auto!important;overflow:visible!important;margin:0!important;padding:0!important;width:100%!important}
+  .app{display:block!important;width:100%!important}
+  header,.sidebar,.chat-panel{display:none!important}
+  .preview-pane{display:block!important;padding:0!important;margin:0!important;background:#fff!important;overflow:visible!important;width:100%!important}
+
+  /* Grey sidebar:
+     beforeprint stretches .cvs to an exact page multiple (see JS below),
+     so the ::before pseudo-element (solid rectangle, no gradient) reaches
+     exactly page-bottom on every page — no anti-aliasing jagged edge. */
+  .cvs{
+    width:100%!important;max-width:100%!important;
+    min-height:297mm!important;
+    background:#ffffff!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+    align-content:start!important;
+  }
+  /* Re-enable the ::before solid grey strip — clean straight edge */
+  .cvs::before{
+    display:block!important;
+    content:''!important;
+    position:absolute!important;
+    top:0!important;left:0!important;bottom:0!important;
+    width:26.4%!important;
+    background:#e5e1da!important;
+    z-index:0!important;
+    pointer-events:none!important;
+  }
+  /* Left column cells: transparent so ::before shows through */
+  .cvs-intro-l,.cvs-body-l,.cvs-sec-hd-l,.cvs-exp-row-l{
+    background:transparent!important;
+  }
+  /* Right column cells: solid white */
+  .cvs-intro-r,.cvs-body-r,.cvs-sec-hd-r,.cvs-exp-section-hd-r,.cvs-exp-row-r{
+    background:#ffffff!important;
+  }
+
+  /* ── Page-break control ──
+     Keep each employer block on one page if possible.
+     Never leave a section heading stranded at the bottom of a page. */
+  .cvs-exp-row{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+  .cvs-sec-hd-r,.cvs-exp-row-r{
+    overflow:visible!important;
+  }
+  .cvs-sec-hd-row{
+    break-after:avoid!important;
+    page-break-after:avoid!important;
+  }
+  .cvs-divider{
+    height:0!important;
+    border-top:1px solid var(--cvacc,#972182)!important;
+    background:transparent!important;
+    position:relative!important;
+    z-index:3!important;
+  }
+
+  /* Hide screen footer; print footers are absolutely positioned by JS */
+  .cvs-ft{display:none!important}
+
+  /* In print: injected footers need colour-accurate rendering */
+  .cvs-ft-injected{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+
+  @page{margin:0;size:A4 portrait}
+}

@@ -1,0 +1,90 @@
+# Dev/workshop stack: the dev image plus a disposable Postgres 16 for the
+# integration gate. Separate from the repository-root docker-compose.yml
+# (the production-like app stack), which this does not touch.
+#
+#   docker compose -f .devcontainer/compose.yml up -d --build
+#   docker compose -f .devcontainer/compose.yml exec dev make test-complete
+#   docker compose -f .devcontainer/compose.yml down -v
+#
+# One stack per checkout: pass `-p <name>` (and DEV_APP_PORT) to run a second
+# checkout's stack alongside this one. See docs/running.md → Dev container.
+
+name: cv-adapter-dev
+
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        # `id -u` / `id -g` of the host user, so files written into the bind
+        # mount are owned by that user. Bash's UID is not exported, hence the
+        # distinct names.
+        USER_UID: ${DEV_UID:-1000}
+        USER_GID: ${DEV_GID:-1000}
+    image: cv-adapter-dev:local
+    init: true
+    command: ["sleep", "infinity"]
+    working_dir: /workspace
+    # Only the checkout is visible inside: no home directory, no ~/.ssh, no
+    # other projects, and deliberately no Docker socket (no Docker-in-Docker;
+    # the integration gate uses the `db` service below instead).
+    volumes:
+      - ..:/workspace
+      # The checkout's own .env holds real secrets (an Anthropic key, the JWT
+      # secret) that nothing in here needs: the tests never read a real key,
+      # and an agent CLI runs with its sandbox relaxed. Shadow it with an
+      # empty, committed file, read-only, so it cannot be read or rewritten
+      # from inside. In a checkout with no .env, Docker creates an empty
+      # mountpoint file there (gitignored).
+      - ./empty.env:/workspace/.env:ro
+    # Chromium crashes on Docker's 64 MB default /dev/shm.
+    shm_size: "1gb"
+    # The app (scripts/devcontainer-app.sh) on the host's loopback only.
+    # Postgres is deliberately not published: it is reachable from inside
+    # this container and nowhere else.
+    ports:
+      - "127.0.0.1:${DEV_APP_PORT:-8000}:8000"
+    environment:
+      # Mirrors .github/workflows/ci.yml's integration job. `localhost` is the
+      # dev container's own loopback, where `db` listens (see network_mode
+      # below) — the only kind of host tests/integration/conftest.py accepts.
+      - DATABASE_URL=postgresql+psycopg://cvtest:cvtest@localhost:5432/cvtest
+      - CV_ADAPTER_TEST_DATABASE_URL=postgresql+psycopg://cvtest:cvtest@localhost:5432/cvtest
+      # An unavailable database is a hard failure here, not a skip.
+      - CV_ADAPTER_REQUIRE_INTEGRATION=1
+      - APP_ENV=development
+      # Agent CLI credentials, passed through from the shell that runs
+      # `docker compose` and only if set there (list form: an unset variable
+      # stays unset inside). Nothing is stored in the image or a volume.
+      # ANTHROPIC_API_KEY is deliberately NOT passed: the app and the test
+      # suite also read that name, and tests must never see a real key.
+      # Claude Code authenticates with CLAUDE_CODE_OAUTH_TOKEN instead.
+      - CLAUDE_CODE_OAUTH_TOKEN
+      - CODEX_API_KEY
+      - OPENAI_API_KEY
+
+  db:
+    image: postgres:16
+    # Share the dev container's network namespace, so Postgres listens on the
+    # dev container's localhost:5432 — the same shape as CI's port-mapped
+    # service container. In plain Compose it would be host `db`, which the
+    # integration gate's loopback-only allowlist refuses, correctly.
+    network_mode: service:dev
+    depends_on:
+      - dev
+    environment:
+      POSTGRES_USER: cvtest
+      POSTGRES_PASSWORD: cvtest
+      POSTGRES_DB: cvtest
+    # Disposable by construction: data lives in memory and is gone on every
+    # stop, so each `up` starts from an empty server, and durability settings
+    # are wasted time (the same flags the gate's own Docker path uses).
+    tmpfs:
+      - /var/lib/postgresql/data
+    command: ["postgres", "-c", "fsync=off", "-c", "full_page_writes=off", "-c", "synchronous_commit=off"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U cvtest -d cvtest"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

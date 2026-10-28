@@ -1,0 +1,36 @@
+# Reviewer override: the checkout is mounted READ-ONLY, so a review agent
+# running with its own sandbox relaxed (Codex's bubblewrap cannot create
+# namespaces inside Docker) still cannot change what it reviews.
+#
+# Run it against a separate checkout of the commit under review, as its own
+# stack beside any dev stack:
+#
+#   [ -e .env ] || : > .env      # see "Why the empty .env" below
+#   export DEV_UID=$(id -u) DEV_GID=$(id -g) DEV_APP_PORT=8001
+#   export REVIEW_GIT_COMMON_DIR=$(git rev-parse --path-format=absolute --git-common-dir)
+#   docker compose -p cv-adapter-review \
+#     -f .devcontainer/compose.yml -f .devcontainer/compose.review.yml up -d
+#
+# Why the empty .env: compose.yml shadows /workspace/.env with empty.env, and
+# a bind mount needs its target to exist. In a writable checkout Docker creates
+# it; inside this read-only one it cannot, and `up` fails with "make mountpoint
+# /workspace/.env: read-only file system". A fresh checkout has no .env (it is
+# gitignored), so create an empty one first. Never overwrite an existing one.
+#
+# REVIEW_GIT_COMMON_DIR: a `git worktree` checkout's .git is a pointer file to
+# the main repository's .git by absolute host path. Mounting that directory,
+# read-only, at the same path is what makes `git show`/`log`/`diff` work inside.
+# For a plain clone, point it at the clone's own .git.
+#
+# Writes the suite would otherwise make into the checkout are turned off:
+# bytecode caches and pytest's cache. Temporary files go to /tmp, which is the
+# container's own.
+
+services:
+  dev:
+    volumes:
+      - ..:/workspace:ro
+      - ${REVIEW_GIT_COMMON_DIR:?set REVIEW_GIT_COMMON_DIR, see the header}:${REVIEW_GIT_COMMON_DIR}:ro
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTEST_ADDOPTS=-p no:cacheprovider

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Applications – Mpya</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--acc:#972182;--ink:#1c1c1c;--ink-mid:#444;--ink-soft:#888;--grey-dark:#ccc8c0;--grey-mid:#d8d4cc;--sans:'Source Sans 3',sans-serif;--serif:'Source Serif 4',serif;--green:#2a7a3b;--red:#b71c1c}
+html,body{min-height:100%;font-family:var(--sans);background:#bbb8b0;color:var(--ink);font-size:14px}
+header{background:#1a1a1a;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--serif);font-size:17px;color:#fff;background:var(--acc);padding:5px 14px;border-radius:2px;letter-spacing:.03em}
+.hgroup{display:flex;align-items:center;gap:14px}
+.whoami{font-size:12px;color:#bbb}
+.hbtn{padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;border-radius:2px;background:transparent;border:1px solid #555;color:#ccc;text-decoration:none}
+.hbtn:hover{background:#333;border-color:#888;color:#fff}
+main{max-width:960px;margin:0 auto;padding:28px 20px 60px}
+h1{font-family:var(--serif);font-size:24px;margin-bottom:6px}
+.lead{color:var(--ink-mid);margin-bottom:24px}
+.card{background:#f4f3f1;border:1px solid var(--grey-dark);border-radius:3px;padding:20px 22px;margin-bottom:20px}
+.card h2{font-family:var(--serif);font-size:17px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mini{font-size:11px;font-weight:600;padding:4px 9px;border-radius:2px;border:1px solid var(--grey-dark);background:#fff;cursor:pointer;color:var(--ink-mid)}
+.mini:hover{border-color:var(--acc);color:var(--acc)}
+.mini:disabled{opacity:.5;cursor:default}
+.result{display:none;margin-top:12px;padding:10px 12px;font-size:12px;border-radius:2px}
+.result.show{display:block}
+.result.ok{background:#e8f5e9;border:1px solid #c8e6c9;color:#1b5e20}
+.result.err{background:#ffebee;border:1px solid #ffcdd2;color:var(--red)}
+.result.info{background:#e3eaf5;border:1px solid #c5d4ea;color:#1a4480}
+.muted{color:var(--ink-soft);font-size:13px;padding:8px 0}
+.pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px}
+.pill.applied{background:#d7e4f5;color:#1a4480}
+.pill.submitted{background:#cfe0d2;color:#1b5e20}
+.pill.closed{background:#e0ddd6;color:#777}
+.pill.withdrawn{background:#e0ddd6;color:#777}
+.pill.cv-ready{background:#d6e8e0;color:#0f3a2e}
+.pill.cv-generating{background:#f0e6d2;color:#7a5a10}
+.pill.cv-failed{background:#f3d9d9;color:var(--red);cursor:help}
+.app{background:#fff;border:1px solid var(--grey-mid);border-radius:2px;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px}
+.app+.app{margin-top:6px}
+.app-main{min-width:0;flex:1}
+.app-title{font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.app-meta{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.app-actions{display:flex;gap:6px;flex:none;flex-wrap:wrap}
+.app-job{background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left;text-decoration:underline dotted;text-underline-offset:3px}
+.app-job:hover{color:var(--acc)}
+.app-desc{display:none;flex-basis:100%}
+.app-desc.show{display:block}
+.app-desc-text{white-space:pre-wrap;font-size:12px;line-height:1.5;color:var(--ink-mid);max-height:280px;overflow-y:auto;background:#fbfaf8;border:1px solid var(--grey-mid);padding:10px;border-radius:2px}
+.app-desc-link{margin-top:6px;font-size:12px}
+.app-desc-link a{color:var(--acc)}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">MPYA Applications</span>
+  <!-- V3-P-003 role-specific top-banner navigation (S6). -->
+  <nav id="topNav" style="display:flex;gap:8px;margin-left:auto;margin-right:14px"></nav>
+  <div class="hgroup">
+    <span class="whoami" id="whoami"></span>
+    <button class="hbtn" onclick="logout()">Sign out</button>
+  </div>
+</header>
+<main>
+  <h1>Applications</h1>
+  <div class="lead">
+    Every Application you may reach — a Consultant sees their own, a Talent
+    Advisor sees every assigned Consultant's. Open a tailored CV from here to
+    edit, generate, or download it.
+  </div>
+
+  <div class="result" id="scopeMsg" style="display:none"></div>
+
+  <div class="card">
+    <h2><span>Applications <span id="appCount"></span></span></h2>
+    <div id="appList"><div class="muted">Loading…</div></div>
+    <div class="result" id="appMsg"></div>
+  </div>
+</main>
+
+<script src="/html/auth-guard.js"></script>
+<script>
+/* Applications dashboard (V3-P-003, S6). GET /api/applications already returns
+   exactly what the caller may reach (backend/applications/routes.py) — this
+   page adds no filter of its own beyond an optional client-side narrowing by
+   `?consultant_id=`, which only changes what is *displayed*, never what was
+   already authorized. */
+const APPS = '/api/applications';
+let me = null;
+/* The rendered applications, by id, so a row's controls can act on the whole
+   record rather than re-deriving it from the DOM. */
+let applications = {};
+/* Resolved against GET /api/me/consultants in init() below — never the raw
+   URL value. An unauthorized or unresolvable `?consultant_id=` must not be
+   trusted into a banner, a filter, or a forwarded nav link. */
+let filterConsultant = '';
+let contextError = '';
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+function show(el, kind, text){ el.className = 'result show ' + kind; el.textContent = text; }
+function hide(el){ el.className = 'result'; }
+
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({credentials:'same-origin'}, opts || {}));
+  let body = null;
+  try { body = await r.json(); } catch (_) { body = null; }
+  if (!r.ok) {
+    const detail = body && body.detail;
+    throw new Error(typeof detail === 'string' ? detail : ('Request failed (' + r.status + ')'));
+  }
+  return body;
+}
+
+/* Only forward moves are offered; the server enforces the same rule and a
+   terminal application accepts nothing at all. */
+const NEXT_STATUSES = {
+  applied:   [['submitted', 'Mark submitted'], ['closed', 'Close'], ['withdrawn', 'Withdraw']],
+  submitted: [['closed', 'Close'], ['withdrawn', 'Withdraw']],
+  closed:    [],
+  withdrawn: [],
+};
+
+/* The tailored CV is an artifact of the application (P-009): generated from a
+   frozen snapshot of the consultant's profile and this posting, edited in the
+   editor's application mode, and never written back to their own CV. Generation
+   is durable — the request returns a run to poll, not a held-open connection. */
+function cvControls(app){
+  const cv = app.tailored_cv;
+  if (!cv) {
+    return app.is_live
+      ? '<button class="mini" data-act="gen-cv">Tailor CV</button>'
+      : '';
+  }
+  const open = '<button class="mini" data-act="open-cv">Open CV</button>'
+             + '<button class="mini" data-act="print-cv">Download PDF</button>';
+  if (cv.status === 'generating') {
+    return '<button class="mini" disabled title="A generation is running.">'
+         + 'Generating…</button>' + (cv.has_content ? open : '');
+  }
+  const again = app.is_live
+    ? '<button class="mini" data-act="gen-cv">'
+      + (cv.status === 'failed' ? 'Retry generation' : 'Regenerate') + '</button>'
+    : '';
+  return (cv.has_content ? open : '') + again;
+}
+
+function cvPill(app){
+  const cv = app.tailored_cv;
+  if (!cv) return '';
+  if (cv.status === 'generating') return '<span class="pill cv-generating">CV generating</span>';
+  if (cv.status === 'failed') {
+    return '<span class="pill cv-failed" title="'
+      + esc(cv.error_message || cv.error_code || 'the last generation failed')
+      + '">CV generation failed</span>';
+  }
+  return '<span class="pill cv-ready">CV rev ' + esc(cv.revision) + '</span>';
+}
+
+function appRow(app){
+  const job = app.job || {};
+  const bits = [job.company, job.location].filter(Boolean).map(esc);
+  const next = (NEXT_STATUSES[app.status] || [])
+    .map(s => '<button class="mini" data-act="status" data-status="' + esc(s[0])
+              + '">' + esc(s[1]) + '</button>').join('');
+  /* A missing Job keeps its plain "(job removed)" title and gets no control. */
+  const title = job.id
+    ? '<button type="button" class="app-job" data-act="desc" id="descbtn-' + esc(app.id)
+      + '" aria-expanded="false" aria-controls="desc-' + esc(app.id) + '">'
+      + esc(job.title || '(untitled job)') + '</button>'
+    : esc(job.title || '(job removed)');
+  return ''
+    + '<div class="app" data-id="' + esc(app.id) + '">'
+    +   '<div class="app-main">'
+    +     '<div class="app-title">' + title
+    +       '<span class="pill ' + esc(app.status) + '">' + esc(app.status) + '</span>'
+    +       cvPill(app)
+    +     '</div>'
+    +     '<div class="app-meta">' + esc(app.consultant_username)
+    +       (bits.length ? ' · ' + bits.join(' · ') : '') + '</div>'
+    +   '</div>'
+    +   '<div class="app-actions">' + cvControls(app) + next + '</div>'
+    +   (job.id ? '<div class="app-desc" id="desc-' + esc(app.id) + '"></div>' : '')
+    + '</div>';
+}
+
+/* ── Read-only Job description (V3-P-032, S21) ────────────────────────────
+   Someone who applied and no longer remembers the posting only needs to read
+   it: the description and, when it is a web address, a link to the original.
+   No Job actions and no other Job fields — Score/Apply/Reject/Edit/Close live
+   on the Jobs page and mean nothing once applied. The body comes from
+   GET /api/jobs/{id} (policy.can_access_job), not from the Application
+   projection, which deliberately carries no Job body (applications.md G8);
+   a refusal such as a 404 is simply shown. The description is untrusted
+   posting text: it goes through esc() and is never inserted as HTML. */
+
+function descriptionView(job){
+  const url = String(job.source_url || '');
+  const link = (url.startsWith('http://') || url.startsWith('https://'))
+    ?'<div class="app-desc-link"><a href="' + esc(url)
+      + '" target="_blank" rel="noopener noreferrer">Open original posting</a></div>'
+    : '';
+  return '<div class="app-desc-text">' + esc(job.description) + '</div>' + link;
+}
+
+async function toggleDescription(app){
+  const view = document.getElementById('desc-' + app.id);
+  const btn = document.getElementById('descbtn-' + app.id);
+  if (!view || !btn || !app.job || !app.job.id) return;
+  if (view.className === 'app-desc show') {
+    view.className = 'app-desc';
+    btn.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  view.className = 'app-desc show';
+  btn.setAttribute('aria-expanded', 'true');
+  view.innerHTML = '<div class="muted">Loading…</div>';
+  try {
+    view.innerHTML = descriptionView(
+      await api('/api/jobs/' + encodeURIComponent(app.job.id)));
+  } catch (e) {
+    view.innerHTML = '<div class="muted">' + esc(e.message) + '</div>';
+  }
+}
+
+async function loadApplications(){
+  const list = document.getElementById('appList');
+  const scopeMsg = document.getElementById('scopeMsg');
+  if (contextError) {
+    scopeMsg.className = 'result show err';
+    scopeMsg.style.display = 'block';
+    scopeMsg.textContent = contextError;
+  } else if (filterConsultant) {
+    scopeMsg.className = 'result show info';
+    scopeMsg.style.display = 'block';
+    scopeMsg.innerHTML = 'Showing applications for <strong>' + esc(filterConsultant)
+      + '</strong> — <a href="/html/applications.html">show all</a>.';
+  } else {
+    scopeMsg.className = 'result';
+    scopeMsg.style.display = 'none';
+  }
+  list.innerHTML = '<div class="muted">Loading…</div>';
+  try {
+    const data = await api(APPS);
+    applications = {};
+    let rows = data.applications || [];
+    if (filterConsultant) rows = rows.filter(a => a.consultant_username === filterConsultant);
+    rows.forEach(a => { applications[a.id] = a; });
+    document.getElementById('appCount').textContent = '(' + rows.length + ')';
+    list.innerHTML = rows.length
+      ? rows.map(appRow).join('')
+      : '<div class="muted">No applications yet. Apply to a job from Jobs.</div>';
+  } catch (e) {
+    list.innerHTML = '<div class="muted">' + esc(e.message) + '</div>';
+  }
+}
+
+async function setApplicationStatus(applicationId, status){
+  const msg = document.getElementById('appMsg');
+  try {
+    const r = await api(APPS + '/' + encodeURIComponent(applicationId) + '/status', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({status: status}),
+    });
+    show(msg, 'ok', r.changed
+      ? ('Application is now ' + r.application.status + '.')
+      : 'Already at that stage — nothing changed.');
+    loadApplications();
+  } catch (e) {
+    show(msg, 'err', e.message);
+  }
+}
+
+/* ── Tailored CV (V2 Slice 3) ───────────────────────────────────────────── */
+
+const EDITOR = '/html/cv-importer.html';
+
+/* The editor's application mode. `consultant_id` is the app-wide "view as"
+   convention and is carried through so an admin/TA session lands on the right
+   identity, exactly as the CV-publish edit link does. */
+function editorUrl(app, extra){
+  return EDITOR + '?application=' + encodeURIComponent(app.id)
+       + '&consultant_id=' + encodeURIComponent(app.consultant_username)
+       + (extra || '');
+}
+
+function openTailoredCv(app){ window.open(editorUrl(app), '_blank'); }
+
+/* The PDF path: open the tailored CV and go straight to the browser's print
+   dialog — the same "Download PDF" the hiring-manager viewer offers. */
+function printTailoredCv(app){ window.open(editorUrl(app, '&print=1'), '_blank'); }
+
+async function generateTailoredCv(app){
+  const msg = document.getElementById('appMsg');
+  if (app.tailored_cv && app.tailored_cv.has_content
+      && !confirm('Generate this tailored CV again? The current version is '
+                  + 'replaced only if the new generation succeeds.')) return;
+  try {
+    /* 202 with a run to poll, never a held-open connection: a full generation
+       can outlast the 60-second edge, and a retried request must not produce a
+       second document. Re-clicking while one is running answers 200 and hands
+       back the same run. */
+    const r = await api(APPS + '/' + encodeURIComponent(app.id) + '/cv/generate',
+                        {method: 'POST'});
+    show(msg, 'info', r.started
+      ? 'Generating the tailored CV — this keeps running if you leave the page.'
+      : 'A generation was already running for this application.');
+    pollTailoredCv(app.id);
+  } catch (e) {
+    show(msg, 'err', e.message);
+  }
+}
+
+/* Poll the durable status until it settles. Bounded: the work lives in the
+   database either way, so giving up here only stops the page refreshing. */
+async function pollTailoredCv(applicationId){
+  const msg = document.getElementById('appMsg');
+  for (let attempt = 0; attempt < 90; attempt++) {
+    await new Promise(r => setTimeout(r, 2000));
+    let body;
+    try {
+      body = await api(APPS + '/' + encodeURIComponent(applicationId) + '/cv/status');
+    } catch (e) { continue; }   /* a transient poll failure is not a failure */
+    const cv = body.tailored_cv || {};
+    if (cv.status === 'generating') {
+      const run = body.run || {};
+      show(msg, 'info', 'Generating… ' + (run.stage || 'working')
+                        + ' (' + (run.progress || 0) + '%)');
+      continue;
+    }
+    show(msg, cv.status === 'ready' ? 'ok' : 'err',
+      cv.status === 'ready'
+        ? 'Tailored CV ready (revision ' + cv.revision + ').'
+        : ('Generation failed: ' + (cv.error_message || cv.error_code || 'unknown reason')));
+    loadApplications();
+    return;
+  }
+  show(msg, 'info', 'Still generating. Reload later to see the result.');
+  loadApplications();
+}
+
+document.getElementById('appList').addEventListener('click', ev => {
+  const btn = ev.target.closest('[data-act]');
+  if (!btn) return;
+  const row = ev.target.closest('.app');
+  if (!row) return;
+  ev.preventDefault();
+  const app = applications[row.dataset.id];
+  const act = btn.dataset.act;
+  if (act === 'status') setApplicationStatus(row.dataset.id, btn.dataset.status);
+  else if (!app) return;
+  else if (act === 'desc') toggleDescription(app);
+  else if (act === 'gen-cv') generateTailoredCv(app);
+  else if (act === 'open-cv') openTailoredCv(app);
+  else if (act === 'print-cv') printTailoredCv(app);
+});
+
+/* Exposed so tests can await the page's own init deterministically, the same
+   convention html/cv-importer.html uses for window.__identityReady. */
+window.__initReady = (async function init(){
+  me = await requireAuth(['consultant','ta','admin']);
+  document.getElementById('whoami').textContent =
+    me.username + ' · ' + (me.roles || []).join(', ');
+  const wanted = new URLSearchParams(location.search).get('consultant_id') || '';
+  const resolved = await resolveConsultantContext(wanted);
+  filterConsultant = resolved.consultant;
+  contextError = resolved.error;
+  renderTopNav(document.getElementById('topNav'), me, 'Applications', filterConsultant);
+  await loadApplications();
+})();
+</script>
+</body>
+</html>

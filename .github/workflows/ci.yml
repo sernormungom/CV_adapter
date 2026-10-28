@@ -1,0 +1,229 @@
+name: ci
+
+# The gates. Established by V2 milestone M1 (gap G-037), which found that image
+# CI ran no tests at all, excluded HTML/JS/CSS and migration changes from its
+# triggers, and referenced a workflow filename that does not exist.
+#
+# `workflow_call` is what makes this load-bearing: build-push.yml calls this
+# workflow and declares `needs` on it, so an image cannot be built or pushed
+# unless every gate here passed. Do not add a gate-skipping condition, and do
+# not weaken a gate to unblock a change (M1 rollback rule).
+#
+# Deliberately no `paths:` filter. A path filter is exactly what broke this
+# before: a gate that does not run reads identically to a gate that passed.
+# Gates are cheap; a missed gate is not.
+#
+# Deliberately no `push` trigger, either: build-push.yml already calls this
+# workflow (via `workflow_call`) on every push to main. A `push` trigger here
+# too would run every job in this file twice for the same commit — once
+# standalone, once nested inside build-push's `gates` job — for no benefit,
+# since every commit that reaches main should already have gone through the
+# `pull_request` trigger below pre-merge. `pull_request` and `workflow_dispatch`
+# still let this run standalone, e.g. to validate a PR before it's mergeable.
+
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+# A newer push to the same ref makes the older run's answer irrelevant.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Matches the Dockerfile's base image, so a dependency that only resolves on
+# some other interpreter fails here rather than at deploy.
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ── Python: dependency resolution + the fast gate ────────────────────────
+  fast:
+    name: fast gate (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      # This step is the requirements gate: requirements-dev.txt pulls in
+      # requirements.txt, so a pin that no longer resolves fails the build.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Check installed dependencies are consistent
+        run: python -m pip check
+
+      - name: Fast gate
+        run: python -m pytest -m fast -q
+
+  # ── Static client: HTML / JS / CSS contract ──────────────────────────────
+  static:
+    name: static gate (HTML/JS/CSS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      # Separate job from `fast` on purpose: an HTML/JS/CSS regression must
+      # produce its own named failure, because "the static client is not
+      # covered by CI" was half of gap G-037.
+      - name: Static gate
+        run: python -m pytest -m static -q
+
+  # ── Migrations + Postgres semantics ──────────────────────────────────────
+  integration:
+    name: integration gate (Postgres 16 + migrations)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cvtest
+          POSTGRES_PASSWORD: cvtest
+          POSTGRES_DB: cvtest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # A throwaway service container, torn down with the job.
+      DATABASE_URL: postgresql+psycopg://cvtest:cvtest@localhost:5432/cvtest
+      CV_ADAPTER_TEST_DATABASE_URL: postgresql+psycopg://cvtest:cvtest@localhost:5432/cvtest
+      # Locally the integration gate may skip when Docker is unavailable. In CI
+      # it may not: a silent skip would contribute nothing to a green build,
+      # which is the class of problem M1 exists to remove.
+      CV_ADAPTER_REQUIRE_INTEGRATION: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      # A separately named migration gate, so "a migration change broke CI" is
+      # legible without reading a test log. The integration suite re-runs these
+      # against per-test throwaway databases; this step proves the exact
+      # command sequence a deploy runs.
+      - name: Alembic upgrade to head
+        run: alembic upgrade head
+
+      - name: Alembic model/schema drift check
+        run: alembic check
+
+      - name: Integration gate
+        run: python -m pytest -m integration -q
+
+  # ── Docker: the artefact actually shipped ────────────────────────────────
+  # Absorbed from the former standalone docker.yml so that a broken image
+  # blocks the push instead of merely reporting alongside it.
+  docker:
+    name: docker gate (build + health smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create CI environment file
+        run: |
+          cat > .env <<'EOF'
+          ANTHROPIC_API_KEY=ci-dummy-key
+          DATA_DIR=data/profiles
+          JOB_STORE_DIR=data/job_store/jobs
+          APPLICATION_TRACKER_DIR=data/application_tracker
+          TA_CONFIG_DIR=data/ta_config
+          EOF
+
+      - name: Build image
+        run: docker compose build
+
+      - name: Start stack
+        run: docker compose up -d
+
+      - name: Wait for health check
+        run: |
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::app never became healthy"
+          docker compose logs
+          exit 1
+
+      - name: Show service status
+        if: always()
+        run: docker compose ps
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down --volumes
+
+  # ── Single required status ────────────────────────────────────────────────
+  # One job to protect the branch on, and the thing build-push.yml depends on.
+  # `needs` alone is not enough: a skipped or cancelled dependency does not
+  # fail a job, so the results are checked explicitly.
+  gates:
+    name: all gates
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [fast, static, integration, docker]
+    steps:
+      - name: Verify every gate succeeded
+        run: |
+          echo "fast=${{ needs.fast.result }}"
+          echo "static=${{ needs.static.result }}"
+          echo "integration=${{ needs.integration.result }}"
+          echo "docker=${{ needs.docker.result }}"
+          failed=0
+          for result in \
+            "${{ needs.fast.result }}" \
+            "${{ needs.static.result }}" \
+            "${{ needs.integration.result }}" \
+            "${{ needs.docker.result }}"
+          do
+            if [ "$result" != "success" ]; then failed=1; fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::at least one gate did not succeed — no image may be built or pushed"
+            exit 1
+          fi
+          echo "All gates passed."

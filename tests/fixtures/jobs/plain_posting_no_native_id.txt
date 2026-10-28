@@ -1,0 +1,30 @@
+Senior Backend Engineer (Consultant assignment)
+
+Client: Example Retail Group
+Location: Stockholm
+Start: 2026-09-15
+Duration: 6 months with option to extend
+Extent: 100%
+
+About the assignment
+
+The client is consolidating three order-management services into one platform and
+needs an experienced backend engineer to own the migration of the payment
+reconciliation flow. You will work in a team of five, alongside the client's own
+architects, and you are expected to take design decisions rather than wait for
+them.
+
+Requirements
+
+- Several years of professional Python experience, including async frameworks
+- Relational database modelling and query tuning under production load
+- Practical experience running services on a managed container platform
+- Working Swedish and professional English
+
+Nice to have
+
+- Message-queue based integration work
+- Prior consulting experience in retail or logistics
+
+Applications are reviewed continuously and the assignment may be filled before
+the stated closing date.
